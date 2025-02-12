@@ -5,94 +5,95 @@ import '../providers/medallas_provider.dart';
 
 class MisMedallas extends StatelessWidget {
   final String userId;
+  final ScrollController scrollController;
 
   const MisMedallas({
     super.key,
     required this.userId,
+    required this.scrollController,
   });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => MedallasProvider()..cargarMedallas(userId),
-      child: _MedallasContent(),
+      child: _MedallasContent(scrollController: scrollController),
     );
   }
 }
 
 class _MedallasContent extends StatelessWidget {
+  final ScrollController scrollController;
+
+  const _MedallasContent({required this.scrollController});
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.6,
-      child: Container(
-        padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 5),
-            Center(
-              child: Text(
-                'Mis Medallas',
-                style: TextStyle(
-                  fontFamily: 'YesevaOne',
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              'Mis Medallas',
+              style: TextStyle(
+                fontFamily: 'YesevaOne',
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Consumer<MedallasProvider>(
-                builder: (context, provider, child) {
-                  if (provider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
+          ),
+          const SizedBox(height: 16),
+          Consumer<MedallasProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
 
-                  if (provider.error != null) {
-                    return Center(
-                      child: Text(
-                        'Error: ${provider.error}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    );
-                  }
+              if (provider.error != null) {
+                return Center(
+                  child: Text(
+                    'Error: ${provider.error}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }
 
-                  return GridView.builder(
-                    padding: EdgeInsets.zero,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.75,
-                    ),
-                    itemCount: provider.medallas.length,
-                    itemBuilder: (context, index) {
-                      final medalla = provider.medallas[index];
-                      return _buildMedalCard(
-                        title: medalla.nombre,
-                        description: medalla.descripcion,
-                        dificultad: medalla.dificultad,
-                        icon: Icons.emoji_events_rounded,
-                        isLocked: !medalla.desbloqueada,
-                        progress: medalla.progreso,
-                      );
-                    },
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 16.0),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.75,
+                ),
+                itemCount: provider.medallas.length,
+                itemBuilder: (context, index) {
+                  final medalla = provider.medallas[index];
+                  return _buildMedalCard(
+                    title: medalla.nombre,
+                    description: medalla.descripcion,
+                    dificultad: medalla.dificultad,
+                    icon: Icons.emoji_events_rounded,
+                    isLocked: !medalla.desbloqueada,
+                    progress: medalla.progreso,
                   );
                 },
-              ),
-            ),
-          ],
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-Widget _buildMedalCard({
+  Widget _buildMedalCard({
     required String title,
     required String description,
     required IconData icon,
@@ -100,7 +101,6 @@ Widget _buildMedalCard({
     required double progress,
     required int dificultad,
   }) {
-
     Color color;
     if (dificultad == 1) {
       color = Colors.green;
@@ -166,7 +166,8 @@ Widget _buildMedalCard({
               overflow: TextOverflow.ellipsis,
             ),
             Expanded(child: Container()), // Ocupa el espacio disponible
-            SizedBox(height: 8), // Espacio entre el contenido y el último componente
+            SizedBox(
+                height: 8), // Espacio entre el contenido y el último componente
             Container(
               height: 4,
               width: double.infinity,
@@ -190,6 +191,4 @@ Widget _buildMedalCard({
       ),
     );
   }
-
-
 }

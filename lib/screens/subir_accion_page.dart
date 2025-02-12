@@ -200,7 +200,7 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
           source: ImageSource.camera,
           imageQuality: 85,
         );
-        
+
         if (photo != null) {
           setState(() {
             _isCompressing = true;
@@ -209,10 +209,10 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
           try {
             // Leer la imagen como bytes
             final Uint8List imageBytes = await photo.readAsBytes();
-            
+
             // Procesar en segundo plano
             final Uint8List? compressedBytes = await compute(
-              _procesarImagenEnBackground, 
+              _procesarImagenEnBackground,
               [imageBytes, 85]
             );
 
@@ -221,7 +221,7 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
               final directory = await getApplicationDocumentsDirectory();
               final timestamp = DateTime.now().millisecondsSinceEpoch;
               final tempPath = '${directory.path}/compressed_image_$timestamp.jpg';
-              
+
               final compressedFile = File(tempPath);
               await compressedFile.writeAsBytes(compressedBytes);
 

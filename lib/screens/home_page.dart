@@ -454,7 +454,10 @@ class MenuPrincipal extends StatelessWidget {
               if (userId != null) {
                 showCustomBottomSheet(
                   context,
-                  MisMedallas(userId: userId),
+                  (scrollController) => MisMedallas(
+                    userId: userId,
+                    scrollController: scrollController,
+                  ),
                 );
               }
             },
@@ -468,7 +471,7 @@ class MenuPrincipal extends StatelessWidget {
               HapticFeedback.lightImpact();
               showCustomBottomSheet(
                 context,
-                const MisAcciones(),
+                (scrollController) => const MisAcciones(),
               );
             },
           ),
@@ -481,7 +484,7 @@ class MenuPrincipal extends StatelessWidget {
               HapticFeedback.lightImpact();
               showCustomBottomSheet(
                 context,
-                const Accesorios(),
+                (scrollController) => const Accesorios(),
               );
             },
           ),
@@ -623,7 +626,29 @@ class MenuPrincipal extends StatelessWidget {
   }
 }
 
-void showCustomBottomSheet(BuildContext context, Widget content) {
+void showCustomBottomSheet(
+  BuildContext context,
+  Widget Function(ScrollController) contentBuilder,
+) {
+    bool isClosed = false; // Flag para evitar llamadas múltiples
+  // Controlador para el DraggableScrollableSheet
+  final DraggableScrollableController controller =
+      DraggableScrollableController();
+
+  // Usar un listener para verificar el tamaño
+  controller.addListener(() {
+    double currentSize = controller.size; // El valor de la altura en porcentaje
+    print("Current Bottom Sheet Size: $currentSize");
+
+    // Aquí puedes ejecutar lógica adicional dependiendo del tamaño
+    if (currentSize < 0.4 && !isClosed) {
+      isClosed = true;
+      controller.animateTo(0.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOutQuad);
+    }
+  });
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -631,7 +656,6 @@ void showCustomBottomSheet(BuildContext context, Widget content) {
     barrierColor: Colors.transparent,
     builder: (context) => Stack(
       children: [
-        // Área táctil para cerrar el bottom sheet
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Container(
@@ -641,10 +665,12 @@ void showCustomBottomSheet(BuildContext context, Widget content) {
           ),
         ),
         DraggableScrollableSheet(
+          controller: controller,
           initialChildSize: 0.6,
-          minChildSize: 0.5,
+          minChildSize: 0.05,
           maxChildSize: 0.6,
           snap: true,
+          shouldCloseOnMinExtent: true,
           builder: (context, scrollController) => Container(
             decoration: BoxDecoration(
               color: Color(AppColors.darkGreen),
@@ -655,7 +681,7 @@ void showCustomBottomSheet(BuildContext context, Widget content) {
             ),
             child: SingleChildScrollView(
               controller: scrollController,
-              child: content,
+              child: contentBuilder(scrollController),
             ),
           ),
         ),

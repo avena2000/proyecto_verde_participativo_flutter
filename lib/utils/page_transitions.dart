@@ -29,6 +29,9 @@ class BottomSheetTransition extends PageRouteBuilder {
   BottomSheetTransition({required this.page})
       : super(
           pageBuilder: (context, animation, secondaryAnimation) => page,
+          opaque: false,
+          barrierDismissible: true,
+          barrierColor: Colors.transparent,
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             const begin = Offset(0.0, 1.0);
             const end = Offset.zero;

@@ -1,28 +1,31 @@
-import 'package:flutter/material.dart';
-import '../models/accion.dart';
+import 'package:flutter/foundation.dart';
+import '../models/user_action.dart';
 import '../services/api_service.dart';
 
-class AccionesProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
-  List<Accion> _acciones = [];
+class AccionesProvider with ChangeNotifier {
+  final ApiService _apiService;
+  List<UserAction> _acciones = [];
   bool _isLoading = false;
   String? _error;
 
-  List<Accion> get acciones => _acciones;
+  AccionesProvider(this._apiService);
+
+  List<UserAction> get acciones => _acciones;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> cargarAcciones() async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
+  Future<void> fetchAcciones(String userId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-      _acciones = await _apiService.getAcciones();
-      _isLoading = false;
-      notifyListeners();
+    try {
+      final response = await _apiService.get('/users/$userId/actions');
+      final List<dynamic> actionsList = response;
+      _acciones = actionsList.map((json) => UserAction.fromJson(json)).toList();
     } catch (e) {
       _error = e.toString();
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -49,12 +52,12 @@ class AccionesProvider extends ChangeNotifier {
       );
 
       // Recargar la lista de acciones después de subir una nueva
-      await cargarAcciones();
+      await fetchAcciones(userId);
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
-      throw e; // Re-lanzar el error para manejarlo en la UI
+      rethrow; // Re-lanzar el error para manejarlo en la UI
     }
   }
-} 
+}

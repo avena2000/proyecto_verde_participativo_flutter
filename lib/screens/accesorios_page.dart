@@ -43,7 +43,7 @@ class _AccesoriosState extends State<Accesorios> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
           child: Text(
             titulo,
             style: const TextStyle(
@@ -56,25 +56,30 @@ class _AccesoriosState extends State<Accesorios> {
         SizedBox(
           height: 140,
           child: ListView.builder(
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0),
             scrollDirection: Axis.horizontal,
-            itemCount: accesoriosSinDefault.length + 1, // +1 para la opción "nada"
+            itemCount:
+                accesoriosSinDefault.length + 1, // +1 para la opción "nada"
             itemBuilder: (context, index) {
               if (index == 0) {
                 // Opción "nada"
-                final bool isSelected = selectedAccesorio == 'default' || selectedAccesorio == '0';
+                final bool isSelected =
+                    selectedAccesorio == 'default' || selectedAccesorio == '0';
                 final defaultConfig = accesorios['default'];
                 return Padding(
                   padding: const EdgeInsets.only(right: 12.0),
                   child: _buildAccesorioCard(
                     nombre: 'Nada',
                     imagen: defaultConfig != null
-                      ? 'assets/accesorios/$tipo/default.png'
-                      : 'assets/accesorios/nada.png',
+                        ? 'assets/accesorios/$tipo/default.png'
+                        : 'assets/accesorios/nada.png',
                     costo: 0,
                     isLocked: false,
                     isSelected: isSelected,
                     onTap: () {
-                      if (accesoriosSinDefault.length == Map<String, AccesorioConfig>.from(accesorios).length) {
+                      if (accesoriosSinDefault.length ==
+                          Map<String, AccesorioConfig>.from(accesorios)
+                              .length) {
                         onAccesorioSelected('0');
                       } else {
                         onAccesorioSelected('default');
@@ -85,7 +90,8 @@ class _AccesoriosState extends State<Accesorios> {
                 );
               }
 
-              final accesorio = accesoriosSinDefault.entries.elementAt(index - 1);
+              final accesorio =
+                  accesoriosSinDefault.entries.elementAt(index - 1);
               final bool isSelected = selectedAccesorio == accesorio.key;
               final int costoPuntos = int.tryParse(accesorio.value.puntos) ?? 0;
               final bool isLocked = costoPuntos > _puntosUsuario;
@@ -119,7 +125,7 @@ class _AccesoriosState extends State<Accesorios> {
       builder: (context, personajeProvider, child) {
         return Container(
           height: MediaQuery.of(context).size.height * 0.6,
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.only(top: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -142,37 +148,43 @@ class _AccesoriosState extends State<Accesorios> {
                       titulo: 'Cabello',
                       accesorios: AccesorioConfig.cabelloConfigs,
                       selectedAccesorio: personajeProvider.cabello,
-                      onAccesorioSelected: (value) => personajeProvider.setCabello(value),
+                      onAccesorioSelected: (value) =>
+                          personajeProvider.setCabello(value),
                       tipo: 'cabello',
                     ),
                     _buildCategoriaAccesorios(
                       titulo: 'Vestimenta',
                       accesorios: AccesorioConfig.vestimentaConfigs,
                       selectedAccesorio: personajeProvider.vestimenta,
-                      onAccesorioSelected: (value) => personajeProvider.setVestimenta(value),
+                      onAccesorioSelected: (value) =>
+                          personajeProvider.setVestimenta(value),
                       tipo: 'vestimenta',
                     ),
                     _buildCategoriaAccesorios(
                       titulo: 'Barba',
                       accesorios: AccesorioConfig.barbaConfigs,
                       selectedAccesorio: personajeProvider.barba,
-                      onAccesorioSelected: (value) => personajeProvider.setBarba(value),
+                      onAccesorioSelected: (value) =>
+                          personajeProvider.setBarba(value),
                       tipo: 'barba',
                     ),
                     _buildCategoriaAccesorios(
                       titulo: 'Detalle Facial',
                       accesorios: AccesorioConfig.detalleFacialConfigs,
                       selectedAccesorio: personajeProvider.detalleFacial,
-                      onAccesorioSelected: (value) => personajeProvider.setDetalleFacial(value),
+                      onAccesorioSelected: (value) =>
+                          personajeProvider.setDetalleFacial(value),
                       tipo: 'detalle_facial',
                     ),
                     _buildCategoriaAccesorios(
                       titulo: 'Detalle Adicional',
                       accesorios: AccesorioConfig.detalleAdicionalConfigs,
                       selectedAccesorio: personajeProvider.detalleAdicional,
-                      onAccesorioSelected: (value) => personajeProvider.setDetalleAdicional(value),
+                      onAccesorioSelected: (value) =>
+                          personajeProvider.setDetalleAdicional(value),
                       tipo: 'detalle_adicional',
                     ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -200,14 +212,14 @@ class _AccesoriosState extends State<Accesorios> {
         child: Container(
           width: 120,
           decoration: BoxDecoration(
-            color: isSelected 
-              ? Color(AppColors.primaryGreen).withOpacity(0.2)
-              : Colors.white.withOpacity(isLocked ? 0.05 : 0.1),
+            color: isSelected
+                ? Color(AppColors.primaryGreen).withOpacity(0.2)
+                : Colors.white.withOpacity(isLocked ? 0.05 : 0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
-                ? Color(AppColors.primaryGreen)
-                : Colors.white.withOpacity(isLocked ? 0.1 : 0.2),
+                  ? Color(AppColors.primaryGreen)
+                  : Colors.white.withOpacity(isLocked ? 0.1 : 0.2),
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -219,9 +231,9 @@ class _AccesoriosState extends State<Accesorios> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isLocked 
-                        ? Colors.white.withOpacity(0.05)
-                        : Color(AppColors.primaryGreen).withOpacity(0.2),
+                      color: isLocked
+                          ? Colors.white.withOpacity(0.05)
+                          : Color(AppColors.primaryGreen).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Stack(
@@ -241,8 +253,11 @@ class _AccesoriosState extends State<Accesorios> {
                               : Image.asset(
                                   imagen,
                                   fit: BoxFit.contain,
-                                  color: isLocked ? Colors.black.withOpacity(0.8) : null,
-                                  colorBlendMode: isLocked ? BlendMode.srcATop : null,
+                                  color: isLocked
+                                      ? Colors.black.withOpacity(0.8)
+                                      : null,
+                                  colorBlendMode:
+                                      isLocked ? BlendMode.srcATop : null,
                                 ),
                         ),
                         if (isLocked)
@@ -258,53 +273,50 @@ class _AccesoriosState extends State<Accesorios> {
                   ),
                 ),
                 if (isLocked)
-                Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  Column(
                     children: [
-
-                      Icon(
-                        Icons.eco,
-                        color: Color(AppColors.primaryGreen).withOpacity(0.7),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        costo.toString(),
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.eco,
+                            color:
+                                Color(AppColors.primaryGreen).withOpacity(0.7),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            costo.toString(),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                    ),
-                  ],
-                )
+                  )
                 else if (showEquipar)
-
                   Column(
                     children: [
                       const SizedBox(height: 8),
                       Text(
                         'Equipar',
                         style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
-                    ),
-                  ],
-                )
+                      ),
+                    ],
+                  )
               ],
             ),
           ),
-
         ),
       ),
     );
-
   }
 }

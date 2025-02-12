@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:proyecto_verde_participativo/screens/welcome_page.dart';
 import 'providers/acciones_provider.dart';
 import 'providers/personaje_provider.dart';
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +22,12 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
+  final apiService = ApiService();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AccionesProvider()),
+        ChangeNotifierProvider(create: (_) => AccionesProvider(apiService)),
         ChangeNotifierProvider(create: (_) => PersonajeProvider()),
       ],
       child: const MyApp(),
