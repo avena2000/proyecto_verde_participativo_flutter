@@ -31,7 +31,8 @@ class _WelcomePageState extends State<WelcomePage> {
     final userId = prefs.getString('userId');
     if (userId == null) return;
     try {
-      final dataAnswer = await _apiService.get('/auth/relogin/$userId',
+      final dataAnswer = await _apiService.get(
+        '/auth/relogin/$userId',
         parser: (data) => UserAccess.fromJson(data),
       );
 
@@ -50,14 +51,15 @@ class _WelcomePageState extends State<WelcomePage> {
       // Guardar información básica de autenticación
       await prefs.setString('userId', dataAnswer.id);
       await prefs.setString('username', dataAnswer.username);
-      await prefs.setBool('isPersonalInformation', dataAnswer.isPersonalInformation);
+      await prefs.setBool(
+          'isPersonalInformation', dataAnswer.isPersonalInformation);
 
       if (!mounted) return;
 
       if (dataAnswer.isPersonalInformation) {
         Navigator.pushAndRemoveUntil(
           context,
-          CustomPageTransition(page: const HomePage()),
+          CustomPageTransition(page: HomePage(key: HomePage.homeKey)),
           (route) => false,
         );
       } else {
@@ -67,14 +69,11 @@ class _WelcomePageState extends State<WelcomePage> {
           (route) => false,
         );
       }
-
-    } catch (e) {
-      print(e);
-    }
+    } catch (_) {}
   }
 
   final List<SlideInfo> slides = [
-     SlideInfo(
+    SlideInfo(
       title: "Bienvenido a EcoApp",
       description: "Tu compañero para un estilo de vida más sostenible",
       icon: Icons.eco,
@@ -91,17 +90,20 @@ class _WelcomePageState extends State<WelcomePage> {
     ),
     SlideInfo(
       title: "Identifica Plantas",
-      description: "Toma fotos de plantas y gana recompensas mientras aprendes sobre la naturaleza",
+      description:
+          "Toma fotos de plantas y gana recompensas mientras aprendes sobre la naturaleza",
       icon: Icons.camera_alt,
     ),
     SlideInfo(
       title: "Alerta de Plagas",
-      description: "Mantén informada a tu comunidad sobre plagas y enfermedades en plantas",
+      description:
+          "Mantén informada a tu comunidad sobre plagas y enfermedades en plantas",
       icon: Icons.warning,
     ),
     SlideInfo(
       title: "Protege el Ambiente",
-      description: "Reporta amenazas ambientales directamente a las autoridades",
+      description:
+          "Reporta amenazas ambientales directamente a las autoridades",
       icon: Icons.security,
     ),
   ];
@@ -112,7 +114,6 @@ class _WelcomePageState extends State<WelcomePage> {
     _checkUser();
     _startAutoPlay();
   }
-
 
   @override
   void dispose() {
@@ -181,7 +182,8 @@ class _WelcomePageState extends State<WelcomePage> {
                   child: PageView.builder(
                     controller: controller,
                     itemCount: slides.length,
-                    onPageChanged: (index) => setState(() => activeIndex = index),
+                    onPageChanged: (index) =>
+                        setState(() => activeIndex = index),
                     physics: const BouncingScrollPhysics(),
                     itemBuilder: (context, index) => buildSlide(slides[index]),
                   ),

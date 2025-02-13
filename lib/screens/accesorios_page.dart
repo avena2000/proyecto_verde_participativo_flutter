@@ -6,7 +6,9 @@ import '../providers/personaje_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Accesorios extends StatefulWidget {
-  const Accesorios({super.key});
+  const Accesorios({super.key, required this.scrollController});
+
+  final ScrollController scrollController;
 
   @override
   State<Accesorios> createState() => _AccesoriosState();
@@ -143,6 +145,7 @@ class _AccesoriosState extends State<Accesorios> {
               const SizedBox(height: 16),
               Expanded(
                 child: ListView(
+                  controller: widget.scrollController,
                   children: [
                     _buildCategoriaAccesorios(
                       titulo: 'Cabello',

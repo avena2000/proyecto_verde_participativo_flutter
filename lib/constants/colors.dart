@@ -16,4 +16,4 @@ class AppColors {
   static int get white => _white;
   static int get black => _black;
   static int get transparent => _transparent;
-} 
+}

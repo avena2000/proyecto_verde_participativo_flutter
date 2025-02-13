@@ -30,6 +30,7 @@ class _MedallasContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
@@ -63,11 +64,12 @@ class _MedallasContent extends StatelessWidget {
                 );
               }
 
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 16.0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              return Expanded(
+                child: GridView.builder(
+                  controller: scrollController,
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
@@ -83,8 +85,9 @@ class _MedallasContent extends StatelessWidget {
                     icon: Icons.emoji_events_rounded,
                     isLocked: !medalla.desbloqueada,
                     progress: medalla.progreso,
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           ),

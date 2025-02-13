@@ -67,9 +67,11 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
     setState(() => _isLoading = true);
 
     try {
-      final dataAnswer = await _apiService.post('/auth/login', data: {
-        'username': _usernameController.text,
-        'password': hashPassword(_passwordController.text),
+      final dataAnswer = await _apiService.post(
+        '/auth/login',
+        data: {
+          'username': _usernameController.text,
+          'password': hashPassword(_passwordController.text),
         },
         parser: (data) => UserAccess.fromJson(data),
       );
@@ -90,7 +92,8 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
       // Guardar información básica de autenticación
       await prefs.setString('userId', dataAnswer.id);
       await prefs.setString('username', dataAnswer.username);
-      await prefs.setBool('isPersonalInformation', dataAnswer.isPersonalInformation);
+      await prefs.setBool(
+          'isPersonalInformation', dataAnswer.isPersonalInformation);
 
       if (!mounted) return;
 
@@ -100,7 +103,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
       if (dataAnswer.isPersonalInformation) {
         Navigator.pushAndRemoveUntil(
           context,
-          CustomPageTransition(page: const HomePage()),
+          CustomPageTransition(page: HomePage(key: HomePage.homeKey)),
           (route) => false,
         );
       } else {
@@ -110,7 +113,6 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
           (route) => false,
         );
       }
-
     } catch (e) {
       if (!mounted) return;
       notificationService.showError(context, e.toString());
@@ -276,4 +278,4 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
       ),
     );
   }
-} 
+}

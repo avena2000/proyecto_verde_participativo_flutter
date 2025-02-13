@@ -14,6 +14,11 @@ void main() async {
   // Configurar la UI del sistema
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,

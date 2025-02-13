@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:proyecto_verde_participativo/models/user_profile.dart';
 import 'package:proyecto_verde_participativo/models/user_stats.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../constants/colors.dart';
 import '../providers/personaje_provider.dart';
 import '../services/api_service.dart';
@@ -18,11 +19,20 @@ import 'welcome_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
+  static final GlobalKey<_HomePageState> homeKey = GlobalKey<_HomePageState>();
+
   @override
   State<HomePage> createState() => _HomePageState();
+
+  static Future<void> actualizarEstadisticas(BuildContext context) async {
+    final homeState = homeKey.currentState;
+    if (homeState != null) {
+      await homeState._actualizarDatosDesdeAPI();
+    }
+  }
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   String _nombre = '';
   String _apellido = '';
@@ -33,10 +43,67 @@ class _HomePageState extends State<HomePage> {
   int _torneos = 0;
   bool _isLoading = true;
 
+  // Variables para la animación
+  late AnimationController _animationController;
+
+  Timer? _hapticTimer;
+  bool _isAnimating = false;
+
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
     _cargarDatosIniciales();
+  }
+
+  void _initializeControllers() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+  }
+
+  void _animateValue(
+    int localValue,
+    int apiValue,
+    AnimationController controller,
+    void Function(int) onUpdate,
+  ) {
+    if (apiValue == localValue) {
+      onUpdate(apiValue);
+      return;
+    }
+
+    _isAnimating = true;
+    controller.duration = const Duration(milliseconds: 1500);
+
+    Animation<int> animation = IntTween(
+      begin: localValue,
+      end: apiValue,
+    ).animate(CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeOut,
+    ));
+
+    animation.addListener(() {
+      onUpdate(animation.value);
+    });
+
+    // Configurar el timer para la retroalimentación háptica
+    const hapticInterval = Duration(milliseconds: 100);
+    _hapticTimer?.cancel();
+    _hapticTimer = Timer.periodic(hapticInterval, (timer) {
+      if (_isAnimating) {
+        HapticFeedback.lightImpact();
+      } else {
+        timer.cancel();
+      }
+    });
+
+    controller.forward(from: 0).whenComplete(() {
+      _isAnimating = false;
+      _hapticTimer?.cancel();
+    });
   }
 
   Future<void> _cargarDatosIniciales() async {
@@ -87,6 +154,12 @@ class _HomePageState extends State<HomePage> {
         parser: (data) => UserProfile.fromJson(data),
       );
 
+      // Guardar los valores actuales como locales
+      final localAcciones = _acciones;
+      final localPuntos = _puntos;
+      final localAmigos = _amigos;
+      final localTorneos = _torneos;
+
       // Actualizamos SharedPreferences con los nuevos datos
       await prefs.setInt('acciones', userStats.acciones);
       await prefs.setInt('puntos', userStats.puntos);
@@ -104,18 +177,56 @@ class _HomePageState extends State<HomePage> {
         detalleAdicional: userProfile.detalleAdicional,
       );
 
-      // Actualizamos el estado
+      // Animamos los valores si hay diferencias
       if (mounted) {
+        // Reiniciamos el controlador de animación si está en uso
+        if (_animationController.isAnimating) {
+          _animationController.stop();
+        }
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (localAcciones != userStats.acciones) {
+            _animateValue(
+              localAcciones,
+              userStats.acciones,
+              _animationController,
+              (value) => setState(() => _acciones = value),
+            );
+          }
+
+          if (localPuntos != userStats.puntos) {
+            _animateValue(
+              localPuntos,
+              userStats.puntos,
+              _animationController,
+              (value) => setState(() => _puntos = value),
+            );
+          }
+
+          if (localAmigos != userStats.cantidadAmigos) {
+            _animateValue(
+              localAmigos,
+              userStats.cantidadAmigos,
+              _animationController,
+              (value) => setState(() => _amigos = value),
+            );
+          }
+
+          if (localTorneos != userStats.torneosParticipados) {
+            _animateValue(
+              localTorneos,
+              userStats.torneosParticipados,
+              _animationController,
+              (value) => setState(() => _torneos = value),
+            );
+          }
+        });
+
         setState(() {
-          _acciones = userStats.acciones;
-          _puntos = userStats.puntos;
-          _torneos = userStats.torneosParticipados;
-          _amigos = userStats.cantidadAmigos;
           _frase = userProfile.slogan;
         });
       }
     } catch (e) {
-      // Si hay un error, mantenemos los datos locales
       debugPrint('Error al cargar datos de la API: $e');
     }
   }
@@ -156,6 +267,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _animationController.dispose();
+    _hapticTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values);
     super.dispose();
@@ -333,7 +446,7 @@ class _HomePageState extends State<HomePage> {
     required String value,
     required bool isInverted,
     required bool isAddition,
-    required Color color, // Nuevo parámetro para el color
+    required Color color,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
@@ -343,7 +456,7 @@ class _HomePageState extends State<HomePage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1), // Uso del color personalizado
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -471,7 +584,9 @@ class MenuPrincipal extends StatelessWidget {
               HapticFeedback.lightImpact();
               showCustomBottomSheet(
                 context,
-                (scrollController) => const MisAcciones(),
+                (scrollController) => MisAcciones(
+                  scrollController: scrollController,
+                ),
               );
             },
           ),
@@ -484,7 +599,9 @@ class MenuPrincipal extends StatelessWidget {
               HapticFeedback.lightImpact();
               showCustomBottomSheet(
                 context,
-                (scrollController) => const Accesorios(),
+                (scrollController) => Accesorios(
+                  scrollController: scrollController,
+                ),
               );
             },
           ),
@@ -630,62 +747,58 @@ void showCustomBottomSheet(
   BuildContext context,
   Widget Function(ScrollController) contentBuilder,
 ) {
-    bool isClosed = false; // Flag para evitar llamadas múltiples
-  // Controlador para el DraggableScrollableSheet
-  final DraggableScrollableController controller =
+  final DraggableScrollableController draggableController =
       DraggableScrollableController();
-
-  // Usar un listener para verificar el tamaño
-  controller.addListener(() {
-    double currentSize = controller.size; // El valor de la altura en porcentaje
-    print("Current Bottom Sheet Size: $currentSize");
-
-    // Aquí puedes ejecutar lógica adicional dependiendo del tamaño
-    if (currentSize < 0.4 && !isClosed) {
-      isClosed = true;
-      controller.animateTo(0.0,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeInOutQuad);
-    }
-  });
+  bool isClosed = false;
 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.transparent,
-    builder: (context) => Stack(
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.4,
-            width: double.infinity,
-            color: Colors.transparent,
-          ),
-        ),
-        DraggableScrollableSheet(
-          controller: controller,
-          initialChildSize: 0.6,
-          minChildSize: 0.05,
-          maxChildSize: 0.6,
-          snap: true,
-          shouldCloseOnMinExtent: true,
-          builder: (context, scrollController) => Container(
-            decoration: BoxDecoration(
-              color: Color(AppColors.darkGreen),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(27),
-                topRight: Radius.circular(27),
-              ),
-            ),
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: contentBuilder(scrollController),
+    builder: (context) {
+      return Stack(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.4,
+              width: double.infinity,
+              color: Colors.transparent,
             ),
           ),
-        ),
-      ],
-    ),
+          DraggableScrollableSheet(
+            controller: draggableController,
+            initialChildSize: 0.6,
+            minChildSize: 0.1,
+            maxChildSize: 0.6,
+            snap: true,
+            shouldCloseOnMinExtent: false,
+            builder: (context, scrollController) {
+              // Agregar un listener para cerrar cuando la altura sea menor a 0.2
+              draggableController.addListener(() {
+                if (draggableController.size <= 0.2) {
+                  if (!isClosed) {
+                    isClosed = true;
+                    Navigator.pop(context);
+                  }
+                }
+              });
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: Color(AppColors.darkGreen),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(27),
+                    topRight: Radius.circular(27),
+                  ),
+                ),
+                child: contentBuilder(scrollController),
+              );
+            },
+          ),
+        ],
+      );
+    },
   );
 }

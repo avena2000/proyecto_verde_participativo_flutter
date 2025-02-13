@@ -37,7 +37,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   }
 
   Future<void> _guardarInformacionPersonal() async {
-
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -62,11 +61,12 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
       if (!mounted) return;
 
-      notificationService.showSuccess(context, "Información guardada exitosamente");
+      notificationService.showSuccess(
+          context, "Información guardada exitosamente");
 
       Navigator.pushAndRemoveUntil(
         context,
-        CustomPageTransition(page: const HomePage()),
+        CustomPageTransition(page: HomePage(key: HomePage.homeKey)),
         (route) => false,
       );
     } catch (e) {
@@ -87,7 +87,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     _emailController.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -142,17 +141,18 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   const SizedBox(height: 24),
                   Container(
                     decoration: BoxDecoration(
-                      color: Color(AppColors.primaryGreenDark).withOpacity(0.05),
+                      color:
+                          Color(AppColors.primaryGreenDark).withOpacity(0.05),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Color(AppColors.primaryGreenDark).withOpacity(0.2),
+                        color:
+                            Color(AppColors.primaryGreenDark).withOpacity(0.2),
                       ),
                     ),
                     child: TextFormField(
                       controller: _emailController,
                       enabled: false,
                       style: const TextStyle(
-
                         fontWeight: FontWeight.w500,
                       ),
                       decoration: InputDecoration(
@@ -175,7 +175,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Color(AppColors.primaryGreenDark).withOpacity(0.2),
+                        color:
+                            Color(AppColors.primaryGreenDark).withOpacity(0.2),
                       ),
                     ),
                     child: TextFormField(
@@ -206,7 +207,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Color(AppColors.primaryGreenDark).withOpacity(0.2),
+                        color:
+                            Color(AppColors.primaryGreenDark).withOpacity(0.2),
                       ),
                     ),
                     child: TextFormField(
@@ -237,7 +239,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Color(AppColors.primaryGreenDark).withOpacity(0.2),
+                        color:
+                            Color(AppColors.primaryGreenDark).withOpacity(0.2),
                       ),
                     ),
                     child: TextFormField(
@@ -267,7 +270,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   SizedBox(
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _guardarInformacionPersonal,
+                      onPressed:
+                          _isLoading ? null : _guardarInformacionPersonal,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(AppColors.primaryGreen),
                         foregroundColor: Colors.white,
@@ -282,7 +286,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                               width: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : const Text(
@@ -302,4 +307,4 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       ),
     );
   }
-} 
+}

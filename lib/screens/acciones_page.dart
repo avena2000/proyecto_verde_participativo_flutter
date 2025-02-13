@@ -7,15 +7,24 @@ import '../providers/acciones_provider.dart';
 import '../widgets/fullscreen_image_gallery.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'home_page.dart';
 
 class MisAcciones extends StatefulWidget {
-  const MisAcciones({super.key});
+  const MisAcciones({super.key, required this.scrollController});
+
+  final ScrollController scrollController;
 
   @override
   State<MisAcciones> createState() => _MisAccionesState();
 }
 
-class _MisAccionesState extends State<MisAcciones> {
+class _MisAccionesState extends State<MisAcciones>
+    with AutomaticKeepAliveClientMixin {
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -27,8 +36,37 @@ class _MisAccionesState extends State<MisAcciones> {
     });
   }
 
+  void _removeItem(int index, UserAction accion) {
+    _listKey.currentState?.removeItem(
+      index,
+      (context, animation) => SlideTransition(
+        position: animation.drive(
+          Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: const Offset(0, 0),
+          ).chain(CurveTween(curve: Curves.easeInOut)),
+        ),
+        child: FadeTransition(
+          opacity: animation,
+          child: SizeTransition(
+            sizeFactor: animation.drive(
+              CurveTween(curve: Curves.easeInOut),
+            ),
+            axisAlignment: -1,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildAccionCard(accion),
+            ),
+          ),
+        ),
+      ),
+      duration: const Duration(milliseconds: 250),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.6,
       child: Container(
@@ -86,12 +124,33 @@ class _MisAccionesState extends State<MisAcciones> {
                     );
                   }
 
-                  return ListView.builder(
-                    padding: EdgeInsets.zero,
-                    itemCount: accionesProvider.acciones.length,
-                    itemBuilder: (context, index) {
+                  return AnimatedList(
+                    key: _listKey,
+                    controller: widget.scrollController,
+                    initialItemCount: accionesProvider.acciones.length,
+                    itemBuilder: (context, index, animation) {
                       final accion = accionesProvider.acciones[index];
-                      return _buildAccionCard(accion);
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween<Offset>(
+                            begin: const Offset(1, 0),
+                            end: Offset.zero,
+                          ).chain(CurveTween(curve: Curves.easeInOut)),
+                        ),
+                        child: FadeTransition(
+                          opacity: animation,
+                          child: SizeTransition(
+                            sizeFactor: animation.drive(
+                              CurveTween(curve: Curves.easeInOut),
+                            ),
+                            axisAlignment: -1,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildAccionCard(accion),
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   );
                 },
@@ -105,7 +164,6 @@ class _MisAccionesState extends State<MisAcciones> {
 
   Widget _buildAccionCard(UserAction accion) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
@@ -137,6 +195,7 @@ class _MisAccionesState extends State<MisAcciones> {
                         'image_${context.read<AccionesProvider>().acciones.indexOf(accion)}',
                     child: CachedNetworkImage(
                       fadeInDuration: const Duration(milliseconds: 200),
+                      fadeOutDuration: const Duration(milliseconds: 200),
                       imageUrl: accion.foto,
                       height: 200,
                       width: double.infinity,
@@ -181,6 +240,53 @@ class _MisAccionesState extends State<MisAcciones> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Borrar acción'),
+                            content: const Text(
+                                '¿Está seguro de que desea borrar esta acción permanentemente?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Cancelar'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  final index = context
+                                      .read<AccionesProvider>()
+                                      .acciones
+                                      .indexOf(accion);
+                                  await context
+                                      .read<AccionesProvider>()
+                                      .eliminarAccion(accion.id);
+                                  _removeItem(index, accion);
+                                  await HomePage.actualizarEstadisticas(
+                                      context);
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Eliminar'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ],

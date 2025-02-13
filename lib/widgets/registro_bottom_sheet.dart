@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
@@ -6,7 +5,6 @@ import 'package:proyecto_verde_participativo/services/api_service.dart';
 import '../constants/colors.dart';
 import '../utils/functions.dart';
 import 'login_bottom_sheet.dart';
-import 'package:crypto/crypto.dart';
 
 class RegistroBottomSheet extends StatefulWidget {
   const RegistroBottomSheet({super.key});

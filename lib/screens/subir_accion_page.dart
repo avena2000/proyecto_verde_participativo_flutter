@@ -21,7 +21,8 @@ class SubirAccionPage extends StatefulWidget {
   State<SubirAccionPage> createState() => _SubirAccionPageState();
 }
 
-class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProviderStateMixin {
+class _SubirAccionPageState extends State<SubirAccionPage>
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   final ImagePicker _picker = ImagePicker();
   final NotificationService notificationService = NotificationService();
@@ -29,7 +30,7 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
     vsync: this,
     duration: const Duration(milliseconds: 300),
   );
-  
+
   int _currentPage = 0;
   double _verticalDragStart = 0;
   bool _isDraggingVertically = false;
@@ -39,7 +40,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
 
   Position? _currentPosition;
   bool _isCompressing = false;
-  
 
   final List<String> imagenes = [
     'assets/acciones/accion_descubrimiento.png',
@@ -64,7 +64,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
     '\nAlerta de una situación peligrosa.\n\nEsto puede ser un incendio, un accidente, una plaga...',
     '\nAyuda en tu entorno.\n\nEsto puede ser limpiar un espacio, ayudar a un animal herido...',
   ];
-
 
   final List<Color> colores = [
     const Color(0xB8057740),
@@ -94,7 +93,7 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
     setState(() {
       _dragProgress = newProgress;
     });
- 
+
     // Si el deslizamiento hacia arriba es mayor al 20% de la altura de la pantalla
     if (dragDistance > screenHeight * 0.25) {
       _isDraggingVertically = false;
@@ -110,10 +109,13 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
 
     // Animamos directamente desde el valor actual hasta 0
     _dragAnimationController.value = currentProgress;
-    _dragAnimationController.animateTo(0.0,
+    _dragAnimationController
+        .animateTo(
+      0.0,
       curve: Curves.easeOutCubic,
       duration: Duration(milliseconds: (300 * currentProgress).round()),
-    ).whenComplete(() {
+    )
+        .whenComplete(() {
       setState(() {
         _dragProgress = 0.0;
       });
@@ -142,13 +144,13 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
     try {
       final permiso = await Permission.location.request();
       if (permiso.isGranted) {
-        Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high
-        ).then((position) {
+        Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+            .then((position) {
           setState(() {
             _currentPosition = position;
           });
-          developer.log('Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
+          developer.log(
+              'Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
         }).catchError((e) {
           developer.log('Error al obtener ubicación: $e');
         });
@@ -161,7 +163,8 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
   }
 
   // Función estática para procesar la imagen en segundo plano
-  static Future<Uint8List?> _procesarImagenEnBackground(List<dynamic> args) async {
+  static Future<Uint8List?> _procesarImagenEnBackground(
+      List<dynamic> args) async {
     try {
       final Uint8List imageBytes = args[0];
       final int quality = args[1];
@@ -181,7 +184,8 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
         }
 
         // Comprimir la imagen y retornar los bytes
-        return Uint8List.fromList(img.encodeJpg(resizedImage, quality: quality));
+        return Uint8List.fromList(
+            img.encodeJpg(resizedImage, quality: quality));
       }
       return null;
     } catch (e) {
@@ -211,16 +215,15 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
             final Uint8List imageBytes = await photo.readAsBytes();
 
             // Procesar en segundo plano
-            final Uint8List? compressedBytes = await compute(
-              _procesarImagenEnBackground,
-              [imageBytes, 85]
-            );
+            final Uint8List? compressedBytes =
+                await compute(_procesarImagenEnBackground, [imageBytes, 85]);
 
             if (compressedBytes != null) {
               // Guardar el resultado
               final directory = await getApplicationDocumentsDirectory();
               final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final tempPath = '${directory.path}/compressed_image_$timestamp.jpg';
+              final tempPath =
+                  '${directory.path}/compressed_image_$timestamp.jpg';
 
               final compressedFile = File(tempPath);
               await compressedFile.writeAsBytes(compressedBytes);
@@ -255,7 +258,8 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
       } else {
         developer.log('Permiso de cámara denegado');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Se necesita permiso para usar la cámara')),
+          const SnackBar(
+              content: Text('Se necesita permiso para usar la cámara')),
         );
       }
     } catch (e) {
@@ -267,7 +271,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
   }
 
   void _mostrarDialogoConfirmacion() {
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -289,10 +292,13 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                   ),
                 ),
               const SizedBox(height: 16),
-              Text('¿Deseas subir esta foto como Acción de ${['Descubrimiento', 'Alerta', 'Ayuda'][_currentPage]}?'),
+              Text('¿Deseas subir esta foto como Acción de ${[
+                'Descubrimiento',
+                'Alerta',
+                'Ayuda'
+              ][_currentPage]}?'),
             ],
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -318,7 +324,8 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
 
   Future<void> _subirAccion() async {
     if (_image != null) {
-      final accionesProvider = Provider.of<AccionesProvider>(context, listen: false);
+      final accionesProvider =
+          Provider.of<AccionesProvider>(context, listen: false);
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
 
@@ -330,7 +337,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
         return;
       }
 
-
       try {
         await accionesProvider.subirAccion(
           userId: userId,
@@ -339,16 +345,16 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
           latitude: _currentPosition?.latitude,
           longitude: _currentPosition?.longitude,
         );
-        
+
         notificationService.showSuccess(
           context,
           'Acción subida correctamente',
         );
-        
+
         setState(() {
           _image = null;
         });
-        
+
         Navigator.of(context).pop();
       } catch (e) {
         notificationService.showError(
@@ -356,7 +362,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
           'Error al subir la acción: ${e.toString()}',
         );
       }
-
     }
   }
 
@@ -384,13 +389,16 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                   itemCount: imagenes.length,
                   itemBuilder: (context, index) {
                     return Transform.scale(
-                      scale: scale,
+                      scale: index == _currentPage
+                          ? scale
+                          : 1.0, // Solo aplica el zoom al elemento actual
                       alignment: Alignment.center,
                       child: Container(
                         width: double.infinity,
                         height: double.infinity,
                         decoration: BoxDecoration(
                           image: DecorationImage(
+                            scale: scale,
                             image: AssetImage(imagenes[index]),
                             fit: BoxFit.cover,
                           ),
@@ -446,7 +454,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                       left: 0,
                       right: 0,
                       child: Center(
-
                         child: SmoothPageIndicator(
                           controller: _pageController,
                           count: imagenes.length,
@@ -483,7 +490,6 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                   ],
                 ),
               ),
-              
               Positioned(
                 top: MediaQuery.of(context).padding.top + 16,
                 right: 16,
@@ -514,9 +520,17 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
-                            title: 
-                            Text(titulosSinSalto[_currentPage], textAlign: TextAlign.center, style: TextStyle(fontFamily: 'YesevaOne',fontSize: 24, fontWeight: FontWeight.bold),),
-                            content: Text(descripciones[_currentPage], textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
+                            title: Text(
+                              titulosSinSalto[_currentPage],
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontFamily: 'YesevaOne',
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            content: Text(descripciones[_currentPage],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 16)),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.of(context).pop(),
@@ -527,41 +541,44 @@ class _SubirAccionPageState extends State<SubirAccionPage> with SingleTickerProv
                         },
                       );
                     },
-
                   ),
                 ),
               ),
             ],
           ),
         ),
-        
-        if (_isCompressing)
-          Container(
-            color: Colors.black87,
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Procesando imagen...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                      fontFamily: 'YesevaOne',
-                      fontWeight: FontWeight.normal,
-                      fontSize: 24,
+        IgnorePointer(
+          ignoring: !_isCompressing,
+          child: AnimatedOpacity(
+            opacity: _isCompressing ? 1.0 : 0.0,
+            curve: Curves.easeInOut,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              color: Colors.black87,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Procesando imagen...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                        fontFamily: 'YesevaOne',
+                        fontWeight: FontWeight.normal,
+                        fontSize: 24,
+                      ),
                     ),
-
-
-                  ),
-                  SizedBox(height: 24),
-                  CircularProgressIndicator(
-                    color: Colors.green,
-                  ),
-                ],
+                    SizedBox(height: 24),
+                    CircularProgressIndicator(
+                      color: Colors.green,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
       ],
     );
   }

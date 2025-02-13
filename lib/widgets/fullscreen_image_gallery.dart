@@ -26,7 +26,9 @@ class _FullscreenImageGalleryState extends State<FullscreenImageGallery>
   late AnimationController _animationController;
   late AnimationController _dragAnimationController;
   double _dragOffset = 0.0;
+  // ignore: unused_field
   bool _isDragging = false;
+  // ignore: unused_field
   int _dragDirection = 0; // -1 para arriba, 1 para abajo, 0 para ninguno
 
   @override

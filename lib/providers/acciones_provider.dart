@@ -31,6 +31,18 @@ class AccionesProvider with ChangeNotifier {
     }
   }
 
+  Future<void> eliminarAccion(String accionId) async {
+    try {
+      await _apiService.delete('/actions/$accionId');
+      // Actualizar la lista local después de una eliminación exitosa
+      _acciones.removeWhere((accion) => accion.id == accionId);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> subirAccion({
     required String userId,
     required String tipo,
