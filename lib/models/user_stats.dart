@@ -9,6 +9,7 @@ class UserStats {
   final bool esDuenoTorneo;
   final int pendingMedalla;
   final int pendingAmigos;
+  final String? torneoId;
 
   UserStats({
     required this.id,
@@ -21,6 +22,7 @@ class UserStats {
     required this.esDuenoTorneo,
     required this.pendingMedalla,
     required this.pendingAmigos,
+    required this.torneoId,
   });
 
   factory UserStats.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class UserStats {
       esDuenoTorneo: json['es_dueno_torneo'],
       pendingMedalla: json['pending_medalla'],
       pendingAmigos: json['pending_amigo'],
+      torneoId: json['torneo_id'],
     );
   }
 
@@ -48,6 +51,7 @@ class UserStats {
       'torneos_ganados': torneosGanados,
       'cantidad_amigos': cantidadAmigos,
       'es_dueno_torneo': esDuenoTorneo,
+      'torneo_id': torneoId,
     };
   }
 }

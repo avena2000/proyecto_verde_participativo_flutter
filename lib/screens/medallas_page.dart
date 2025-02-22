@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/colors.dart';
 import '../providers/medallas_provider.dart';
+import '../services/api_service.dart';
+import 'home_page.dart';
 
 class MisMedallas extends StatelessWidget {
   final String userId;
@@ -15,9 +17,26 @@ class MisMedallas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MedallasProvider()..cargarMedallas(userId),
-      child: _MedallasContent(scrollController: scrollController),
+    // Llamar al API para resetear las medallas pendientes
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ApiService().resetPendingMedallas(userId);
+      } catch (e) {
+        // Manejar el error silenciosamente
+      }
+    });
+
+    // Actualizar el home page cuando se cierre el widget
+    return PopScope(
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          await HomePage.actualizarEstadisticas(context);
+        }
+      },
+      child: ChangeNotifierProvider(
+        create: (_) => MedallasProvider()..cargarMedallas(userId),
+        child: _MedallasContent(scrollController: scrollController),
+      ),
     );
   }
 }
@@ -70,21 +89,21 @@ class _MedallasContent extends StatelessWidget {
                   shrinkWrap: true,
                   padding: const EdgeInsets.only(bottom: 16.0),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.75,
-                ),
-                itemCount: provider.medallas.length,
-                itemBuilder: (context, index) {
-                  final medalla = provider.medallas[index];
-                  return _buildMedalCard(
-                    title: medalla.nombre,
-                    description: medalla.descripcion,
-                    dificultad: medalla.dificultad,
-                    icon: Icons.emoji_events_rounded,
-                    isLocked: !medalla.desbloqueada,
-                    progress: medalla.progreso,
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.75,
+                  ),
+                  itemCount: provider.medallas.length,
+                  itemBuilder: (context, index) {
+                    final medalla = provider.medallas[index];
+                    return _buildMedalCard(
+                      title: medalla.nombre,
+                      description: medalla.descripcion,
+                      dificultad: medalla.dificultad,
+                      icon: Icons.emoji_events_rounded,
+                      isLocked: !medalla.desbloqueada,
+                      progress: medalla.progreso,
                     );
                   },
                 ),

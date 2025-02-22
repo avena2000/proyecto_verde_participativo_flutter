@@ -13,6 +13,8 @@ class MedallasProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  bool _isFriend = false;
+
   Future<void> cargarMedallas(String userId) async {
   _isLoading = true;
   _error = null;
@@ -21,10 +23,23 @@ class MedallasProvider extends ChangeNotifier {
   try {
     // Cargar todas las medallas disponibles
     final todasLasMedallas = await _apiService.getMedallas();
-    final medallasUsuario = await _apiService.getMedallasUsuario(userId);
+
+    List<MedallaUsuario>? medallasUsuario = [];
+    try {
+      medallasUsuario = await _apiService.getMedallasUsuario(userId);
+    } catch (e) {
+      medallasUsuario = [];
+    }
 
     // Obtener SharedPreferences para calcular progreso
     final prefs = await SharedPreferences.getInstance();
+    final String? storedUserId = prefs.getString('userId');
+
+    if (storedUserId != userId) {
+      _isFriend = true;
+    } else {
+      _isFriend = false;
+    }
 
     // Procesar cada medalla y calcular su progreso
     List<Medalla> medallasDesbloqueadas = [];
@@ -32,7 +47,7 @@ class MedallasProvider extends ChangeNotifier {
 
     for (var medalla in todasLasMedallas) {
       final medallasDesbloqueada =
-          medallasUsuario.any((m) => m.idMedalla == medalla.id);
+          medallasUsuario?.any((m) => m.idMedalla == medalla.id);
       final progreso = _calcularProgreso(
         medalla.requiereAmistades,
         medalla.requierePuntos,
@@ -54,11 +69,11 @@ class MedallasProvider extends ChangeNotifier {
         requiereTorneos: medalla.requiereTorneos,
         requiereVictoriaTorneos: medalla.requiereVictoriaTorneos,
         numeroRequerido: medalla.numeroRequerido,
-        desbloqueada: medallasDesbloqueada,
+        desbloqueada: medallasDesbloqueada ?? false,
         progreso: progreso,
       );
 
-      if (medallasDesbloqueada) {
+      if (medallasDesbloqueada ?? false) {
         medallasDesbloqueadas.add(nuevaMedalla);
       } else {
         medallasNoDesbloqueadas.add(nuevaMedalla);
@@ -84,8 +99,9 @@ class MedallasProvider extends ChangeNotifier {
   double _calcularProgreso(bool requiereAmistades, bool requierePuntos, bool requiereAcciones, bool requiereTorneos, bool requiereVictoriaTorneos, int numeroRequerido, SharedPreferences prefs) {
     double progreso = 0.0;
 
+
     if (requiereAmistades) {
-      final valorActual = prefs.getInt('amigos') ?? 0;
+      final valorActual = prefs.getInt(_isFriend ? 'friend-amigos' : 'amigos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -93,7 +109,7 @@ class MedallasProvider extends ChangeNotifier {
       }
     }
     if (requierePuntos) {
-      final valorActual = prefs.getInt('puntos') ?? 0;
+      final valorActual = prefs.getInt(_isFriend ? 'friend-puntos' : 'puntos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -101,7 +117,7 @@ class MedallasProvider extends ChangeNotifier {
       }
     }
     if (requiereAcciones) {
-      final valorActual = prefs.getInt('acciones') ?? 0;
+      final valorActual = prefs.getInt(_isFriend ? 'friend-acciones' : 'acciones') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -109,7 +125,7 @@ class MedallasProvider extends ChangeNotifier {
       }
     } 
     if (requiereTorneos) {
-      final valorActual = prefs.getInt('torneos') ?? 0;
+      final valorActual = prefs.getInt(_isFriend ? 'friend-torneosParticipados' : 'torneos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -117,7 +133,7 @@ class MedallasProvider extends ChangeNotifier {
       }
     } 
     if (requiereVictoriaTorneos) {
-      final valorActual = prefs.getInt('victoriaTorneos') ?? 0;
+      final valorActual = prefs.getInt(_isFriend ? 'friend-torneosGanados' : 'victoriaTorneos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {

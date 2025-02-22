@@ -10,10 +10,11 @@ import 'package:provider/provider.dart';
 import 'home_page.dart';
 
 class MisAcciones extends StatefulWidget {
-  const MisAcciones({super.key, required this.scrollController});
+  const MisAcciones(
+      {super.key, required this.scrollController, required this.userId});
 
   final ScrollController scrollController;
-
+  final String userId;
   @override
   State<MisAcciones> createState() => _MisAccionesState();
 }
@@ -21,6 +22,7 @@ class MisAcciones extends StatefulWidget {
 class _MisAccionesState extends State<MisAcciones>
     with AutomaticKeepAliveClientMixin {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  bool _isFriend = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -28,11 +30,19 @@ class _MisAccionesState extends State<MisAcciones>
   @override
   void initState() {
     super.initState();
-
+    if (widget.userId == "") {
+      _isFriend = false;
+    } else {
+      _isFriend = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
-      context.read<AccionesProvider>().fetchAcciones(userId!);
+      if (!_isFriend) {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('userId');
+        context.read<AccionesProvider>().fetchAcciones(userId!);
+      } else {
+        context.read<AccionesProvider>().fetchAcciones(widget.userId);
+      }
     });
   }
 
@@ -77,7 +87,7 @@ class _MisAccionesState extends State<MisAcciones>
             const SizedBox(height: 5),
             Center(
               child: Text(
-                'Mis Acciones',
+                _isFriend ? 'Acciones' : 'Mis Acciones',
                 style: TextStyle(
                   fontFamily: 'YesevaOne',
                   color: Colors.white,
@@ -93,8 +103,9 @@ class _MisAccionesState extends State<MisAcciones>
                   if (accionesProvider.isLoading) {
                     return const Center(child: CircularProgressIndicator());
                   }
-
-                  if (accionesProvider.error != null) {
+                  if (accionesProvider.error != null &&
+                      accionesProvider.error !=
+                          "type 'Null' is not a subtype of type 'List<dynamic>'") {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -112,7 +123,9 @@ class _MisAccionesState extends State<MisAcciones>
                     );
                   }
 
-                  if (accionesProvider.acciones.isEmpty) {
+                  if (accionesProvider.acciones.isEmpty ||
+                      accionesProvider.error ==
+                          "type 'Null' is not a subtype of type 'List<dynamic>'") {
                     return Center(
                       child: Text(
                         'No has registrado acciones aún',
@@ -242,10 +255,11 @@ class _MisAccionesState extends State<MisAcciones>
                     ),
                   ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: IconButton(
+                if (!_isFriend)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: IconButton(
                     icon: const Icon(
                       Icons.delete,
                       color: Colors.white,

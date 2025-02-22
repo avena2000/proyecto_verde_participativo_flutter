@@ -4,6 +4,7 @@ class UserBasicInfo {
   final String nombre;
   final String apellido;
   final String telefono;
+  final String friendId;
 
 
   UserBasicInfo({
@@ -12,6 +13,7 @@ class UserBasicInfo {
     required this.nombre,
     required this.apellido,
     required this.telefono,
+    required this.friendId,
   });
 
 
@@ -23,7 +25,7 @@ class UserBasicInfo {
       nombre: json['nombre'],
       apellido: json['apellido'],
       telefono: json['numero'],
-
+      friendId: json['friend_id'],
     );
   }
 

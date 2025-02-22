@@ -7,7 +7,9 @@ class PersonajeWidget extends StatelessWidget {
   final String barba;
   final String detalleFacial;
   final String detalleAdicional;
-
+  final VoidCallback? onDoubleTap;
+  final bool isPrincipal;
+  final double height;
 
   const PersonajeWidget({
     super.key,
@@ -16,22 +18,28 @@ class PersonajeWidget extends StatelessWidget {
     this.barba = '0',
     this.detalleFacial = '0',
     this.detalleAdicional = '0',
+    this.onDoubleTap,
+    this.isPrincipal = true,
+    this.height = 0,
   });
 
-  Widget _buildAccesorio(BuildContext context, String tipo, String nombre, Map<String, AccesorioConfig> configs) {
-
+  Widget _buildAccesorio(BuildContext context, String tipo, String nombre,
+      Map<String, AccesorioConfig> configs) {
     if (nombre == '0') {
-          return Container(); // Devuelve un contenedor vacío
+      return Container(); // Devuelve un contenedor vacío
     }
 
     final config = configs[nombre] ?? configs['default']!;
-
     return Positioned(
-      bottom: MediaQuery.of(context).size.height * config.bottomOffset,
+      bottom: isPrincipal
+          ? MediaQuery.of(context).size.height * config.bottomOffset
+          : (height) * (config.bottomOffset),
       left: config.leftOffset,
       right: config.rightOffset,
       child: Container(
-        height: MediaQuery.of(context).size.height * config.heightFactor,
+        height: isPrincipal
+            ? MediaQuery.of(context).size.height * config.heightFactor
+            : (config.heightFactor) * (height),
         decoration: BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/accesorios/$tipo/$nombre.png'),
@@ -44,32 +52,38 @@ class PersonajeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Personaje base
-        Positioned(
-          bottom: MediaQuery.of(context).size.height * 0.47,
-          left: 0,
-          right: 4,
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.55,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/personaje_base.png'),
-                fit: BoxFit.cover,
+    return GestureDetector(
+        onDoubleTap: onDoubleTap,
+        child: Stack(
+          children: [
+          // Personaje base
+          Positioned(
+            bottom: isPrincipal ? MediaQuery.of(context).size.height * 0.47 : 0,
+            left: 0,
+            right: isPrincipal ? 4 : 0,
+            child: Container(
+              height: isPrincipal
+                  ? MediaQuery.of(context).size.height * 0.55
+                  : height,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/personaje_base.png'),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
-        ),
-        // Accesorios
-        _buildAccesorio(context, 'detalle_facial', detalleFacial, AccesorioConfig.detalleFacialConfigs),
-        _buildAccesorio(context, 'detalle_adicional', detalleAdicional, AccesorioConfig.detalleAdicionalConfigs),
-        _buildAccesorio(context, 'vestimenta', vestimenta, AccesorioConfig.vestimentaConfigs),
-        _buildAccesorio(context, 'barba', barba, AccesorioConfig.barbaConfigs),
-        _buildAccesorio(context, 'cabello', cabello, AccesorioConfig.cabelloConfigs),
-
-      ],
-    );
+          // Accesorios
+          _buildAccesorio(context, 'detalle_facial', detalleFacial,
+              isPrincipal ? AccesorioConfig.detalleFacialConfigs : AccesorioConfig.detalleFacialConfigsNormalizados),
+          _buildAccesorio(context, 'detalle_adicional', detalleAdicional,
+              isPrincipal ? AccesorioConfig.detalleAdicionalConfigs : AccesorioConfig.detalleAdicionalConfigsNormalizados),
+          _buildAccesorio(context, 'vestimenta', vestimenta,
+              isPrincipal ? AccesorioConfig.vestimentaConfigs : AccesorioConfig.vestimentaConfigsNormalizados),
+          _buildAccesorio(
+              context, 'barba', barba, isPrincipal ? AccesorioConfig.barbaConfigs : AccesorioConfig.barbaConfigsNormalizados),
+          _buildAccesorio(
+              context, 'cabello', cabello, isPrincipal ? AccesorioConfig.cabelloConfigs : AccesorioConfig.cabelloConfigsNormalizados),
+        ]));
   }
-
 }

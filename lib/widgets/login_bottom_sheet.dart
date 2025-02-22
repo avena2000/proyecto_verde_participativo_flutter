@@ -88,6 +88,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet>
         await prefs.setString('nombre', userInfo.nombre);
         await prefs.setString('apellido', userInfo.apellido);
         await prefs.setString('telefono', userInfo.telefono);
+        await prefs.setString('friendId', userInfo.friendId);
       }
       // Guardar información básica de autenticación
       await prefs.setString('userId', dataAnswer.id);

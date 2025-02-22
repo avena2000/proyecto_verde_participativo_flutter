@@ -76,8 +76,8 @@ class ApiService {
         return parser(response.data);
       }
       return response.data as T;
-    } on DioException catch (e) {
-      throw _handleError(e);
+    } on DioException catch (_) {
+      rethrow;
     }
   }
 
@@ -199,13 +199,25 @@ class ApiService {
     );
   }
 
-  Future<List<MedallaUsuario>> getMedallasUsuario(String userId) async {
-    return get<List<MedallaUsuario>>(
-      '/users/$userId/medallas',
-      parser: (data) => (data as List)
-          .map((json) => MedallaUsuario.fromJson(json as Map<String, dynamic>))
-          .toList(),
-    );
+  Future<List<MedallaUsuario>?> getMedallasUsuario(String? userId) async {
+    // Si userId es null, retornar null o una lista vacía
+    if (userId == null) return null;
+
+    try {
+      return get<List<MedallaUsuario>>(
+        '/users/$userId/medallas',
+        parser: (data) => (data as List)
+            .map(
+                (json) => MedallaUsuario.fromJson(json as Map<String, dynamic>))
+            .toList(),
+      );
+    } catch (e) {
+      return []; // También puedes retornar una lista vacía `return [];`
+    }
+  }
+
+  Future<void> resetPendingMedallas(String userId) async {
+    await get('/users/$userId/medallas/reset-pending');
   }
 
   Exception _handleError(DioException e) {

@@ -15,7 +15,8 @@ class ConfiguracionBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<ConfiguracionBottomSheet> createState() => _ConfiguracionBottomSheetState();
+  State<ConfiguracionBottomSheet> createState() =>
+      _ConfiguracionBottomSheetState();
 }
 
 class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
@@ -23,7 +24,8 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
   final _apiService = ApiService();
   final _nombreController = TextEditingController();
   final _apellidoController = TextEditingController();
-  final _sloganController = TextEditingController();
+  String? _selectedSlogan;
+  List<String> _availableSlogans = ["ViVe tu mejor vida"];
   final notificationService = NotificationService();
   bool _isLoading = false;
 
@@ -31,6 +33,30 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
   void initState() {
     super.initState();
     _cargarDatos();
+    _cargarSlogans();
+  }
+
+  Future<void> _cargarSlogans() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      if (userId == null) return;
+
+      final response = await _apiService.get('/users/$userId/medallas/slogans');
+      if (response != null) {
+        setState(() {
+          _availableSlogans = [
+            "ViVe tu mejor vida",
+            ...List<String>.from(response)
+          ];
+        });
+      }
+    } catch (e) {
+      notificationService.showError(
+        context,
+        'Error al cargar los slogans disponibles',
+      );
+    }
   }
 
   Future<void> _cargarDatos() async {
@@ -38,7 +64,7 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
     setState(() {
       _nombreController.text = prefs.getString('nombre') ?? '';
       _apellidoController.text = prefs.getString('apellido') ?? '';
-      _sloganController.text = prefs.getString('slogan') ?? '';
+      _selectedSlogan = prefs.getString('slogan') ?? _availableSlogans[0];
     });
   }
 
@@ -52,16 +78,16 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
       final userId = prefs.getString('userId');
 
       if (userId == null) return;
-      //Para guardar slogan se deben enviar a otra ruta
+
       await _apiService.put('/users/$userId/profile/edit', data: {
         'nombre': _nombreController.text,
         'apellido': _apellidoController.text,
-        'slogan': _sloganController.text,
+        'slogan': _selectedSlogan,
       });
 
       await prefs.setString('nombre', _nombreController.text);
       await prefs.setString('apellido', _apellidoController.text);
-      await prefs.setString('slogan', _sloganController.text);
+      await prefs.setString('slogan', _selectedSlogan ?? _availableSlogans[0]);
 
       widget.onUpdateComplete();
     } catch (e) {
@@ -72,7 +98,6 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
     } finally {
       setState(() => _isLoading = false);
     }
-
   }
 
   Future<void> _cerrarSesion() async {
@@ -83,10 +108,12 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
+    return SafeArea(
+      bottom: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 6),
+        child: Form(
+          key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -167,9 +194,10 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
               onChanged: (_) => _actualizarDatos(),
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _sloganController,
+            DropdownButtonFormField<String>(
+              value: _selectedSlogan ?? _availableSlogans[0],
               style: const TextStyle(color: Colors.white),
+              dropdownColor: Colors.black87,
               decoration: InputDecoration(
                 labelText: 'Frase personal',
                 labelStyle: const TextStyle(color: Colors.white70),
@@ -181,16 +209,22 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
                   borderSide: BorderSide(color: Color(AppColors.primaryGreen)),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                errorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
-              onChanged: (_) => _actualizarDatos(),
+              items: _availableSlogans.map((String slogan) {
+                return DropdownMenuItem<String>(
+                  value: slogan,
+                  child: Text(
+                    slogan,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedSlogan = newValue;
+                });
+                _actualizarDatos();
+              },
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -218,6 +252,7 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -226,7 +261,6 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
   void dispose() {
     _nombreController.dispose();
     _apellidoController.dispose();
-    _sloganController.dispose();
     super.dispose();
   }
-} 
+}
