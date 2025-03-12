@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:auto_animated/auto_animated.dart';
 import '../constants/colors.dart';
 import '../providers/medallas_provider.dart';
 import '../services/api_service.dart';
 import 'home_page.dart';
 
-class MisMedallas extends StatelessWidget {
+class MisMedallas extends StatefulWidget {
   final String userId;
   final ScrollController scrollController;
 
@@ -16,16 +17,34 @@ class MisMedallas extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    // Llamar al API para resetear las medallas pendientes
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await ApiService().resetPendingMedallas(userId);
-      } catch (e) {
-        // Manejar el error silenciosamente
-      }
-    });
+  State<MisMedallas> createState() => _MisMedallasState();
+}
 
+class _MisMedallasState extends State<MisMedallas> {
+  final ApiService _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Establecer el contexto para las notificaciones
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _apiService.setContext(context);
+      // Llamar al API para resetear las medallas pendientes
+      _resetPendingMedallas();
+    });
+  }
+
+  Future<void> _resetPendingMedallas() async {
+    try {
+      await _apiService.resetPendingMedallas(widget.userId,
+          showMessages: false);
+    } catch (e) {
+      // Manejar el error silenciosamente
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Actualizar el home page cuando se cierre el widget
     return PopScope(
       onPopInvoked: (didPop) async {
@@ -34,8 +53,8 @@ class MisMedallas extends StatelessWidget {
         }
       },
       child: ChangeNotifierProvider(
-        create: (_) => MedallasProvider()..cargarMedallas(userId),
-        child: _MedallasContent(scrollController: scrollController),
+        create: (_) => MedallasProvider()..cargarMedallas(widget.userId),
+        child: _MedallasContent(scrollController: widget.scrollController),
       ),
     );
   }
@@ -82,12 +101,18 @@ class _MedallasContent extends StatelessWidget {
                   ),
                 );
               }
-
               return Expanded(
-                child: GridView.builder(
+                child: LiveGrid.options(
                   controller: scrollController,
                   shrinkWrap: true,
-                  padding: const EdgeInsets.only(bottom: 16.0),
+                  padding: const EdgeInsets.only(bottom: 32.0),
+                  options: LiveOptions(
+                    delay: Duration.zero,
+                    showItemInterval: const Duration(milliseconds: 50),
+                    showItemDuration: const Duration(milliseconds: 150),
+                    visibleFraction: 0.001,
+                    reAnimateOnVisibility: false,
+                  ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
@@ -95,15 +120,42 @@ class _MedallasContent extends StatelessWidget {
                     childAspectRatio: 0.75,
                   ),
                   itemCount: provider.medallas.length,
-                  itemBuilder: (context, index) {
+                  itemBuilder: (context, index, animation) {
                     final medalla = provider.medallas[index];
-                    return _buildMedalCard(
-                      title: medalla.nombre,
-                      description: medalla.descripcion,
-                      dificultad: medalla.dificultad,
-                      icon: Icons.emoji_events_rounded,
-                      isLocked: !medalla.desbloqueada,
-                      progress: medalla.progreso,
+                    return FadeTransition(
+                      opacity: Tween<double>(
+                        begin: 0,
+                        end: 1,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOut,
+                      )),
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.2, 0.2),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutQuart,
+                        )),
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.8,
+                            end: 1.0,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutBack,
+                          )),
+                          child: _buildMedalCard(
+                            title: medalla.nombre,
+                            description: medalla.descripcion,
+                            dificultad: medalla.dificultad,
+                            icon: Icons.emoji_events_rounded,
+                            isLocked: !medalla.desbloqueada,
+                            progress: medalla.progreso,
+                          ),
+                        ),
+                      ),
                     );
                   },
                 ),

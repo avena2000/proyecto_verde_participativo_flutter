@@ -45,37 +45,6 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
     });
   }
 
-  String _convertirSecuenciaAFlechas(String? secuencia) {
-    if (secuencia == null) return '';
-    return secuencia.split('-').map((direccion) {
-      switch (direccion) {
-        case 'up':
-          return '↑';
-        case 'down':
-          return '↓';
-        case 'left':
-          return '←';
-        case 'right':
-          return '→';
-        default:
-          return '';
-      }
-    }).join(' ');
-  }
-
-  String _obtenerIconoFlecha(DireccionGesto direccion) {
-    switch (direccion) {
-      case DireccionGesto.arriba:
-        return '↑';
-      case DireccionGesto.abajo:
-        return '↓';
-      case DireccionGesto.izquierda:
-        return '←';
-      case DireccionGesto.derecha:
-        return '→';
-    }
-  }
-
   Icon _obtenerIcono(DireccionGesto direccion) {
     switch (direccion) {
       case DireccionGesto.arriba:
@@ -144,76 +113,96 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
 
     if (userId != null) {
       try {
-        await ApiService().post('/users/$userId/friends/add',
+        ApiService apiService = ApiService();
+        apiService.setContext(context);
+        await apiService.post('/users/$userId/friends/add',
             data: {
               'friend_id_request': secuenciaString,
             },
+            showMessages: true,
             parser: (data) => data);
-            notificationService.showSuccess(
-            context, "Amigo agregado correctamente");
-            Navigator.pop(context, _secuencia);
-      } catch (e) {
-        if (e is DioException) {
-          if (e.response?.statusCode == 404) {
-            notificationService.showError(
-                context, "El usuario que buscas no existe");
-          } else if (e.response?.statusCode == 409) {
-            notificationService.showError(
-                context, "No te puedes agregar a ti mismo");
-          } else if (e.response?.statusCode == 400) {
-            notificationService.showError(
-                context, "El usuario ya es tu amigo o está pendiente");
-          } else {
-            notificationService.showError(
-                context, "Ocurrió un error al agregar amigo");
-          }
-        }
-      }
+        notificationService.showSuccess(
+            context, "Solicitud enviada correctamente");
+        Navigator.pop(context, _secuencia);
+      } catch (_) {}
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 5),
-          Center(
-            child: Text(
-              'Agregar Amigo',
-              style: TextStyle(
-                fontFamily: 'YesevaOne',
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          if (_friendId != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Tu código:',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: SafeArea(
+          bottom: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 21),
+              Center(
+                child: Text(
+                  'Agregar Amigo',
+                  style: TextStyle(
+                    fontFamily: 'YesevaOne',
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: _friendId?.split('-').map((direccion) {
+              if (_friendId != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Tu código:',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _friendId?.split('-').map((direccion) {
+                          return Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Color(AppColors.primaryGreen),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: _obtenerIconoDesdeString(direccion),
+                            ),
+                          );
+                        }).toList() ??
+                        [],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(5, (index) {
+                    if (index < _secuencia.length) {
                       return Container(
                         width: 50,
                         height: 50,
@@ -222,141 +211,109 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
-                          child: _obtenerIconoDesdeString(direccion),
+                          child: _obtenerIcono(_secuencia[index]),
                         ),
                       );
-                    }).toList() ??
-                    [],
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(5, (index) {
-                if (index < _secuencia.length) {
-                  return Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Color(AppColors.primaryGreen),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: _obtenerIcono(_secuencia[index]),
-                    ),
-                  );
-                } else {
-                  return Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                  );
-                }
-              }),
-            ),
-          ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onPanStart: (details) {
-              _startPosition = details.globalPosition;
-            },
-            onPanUpdate: (details) {
-              if (_startPosition != null) {
-                final delta = details.globalPosition - _startPosition!;
-                if (delta.distance > 50) {
-                  _procesarGesto(delta);
-                  _startPosition = null;
-                }
-              }
-            },
-            child: Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Text(
-                      'Desliza en cualquier dirección\npara agregar una flecha',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: IconButton(
-                      onPressed: () {
-                        setState(() => _secuencia.clear());
-                      },
-                      icon: Icon(
-                        Icons.delete_outline,
-                        color: Colors.red.withOpacity(0.7),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 60,
-            child: ElevatedButton(
-              onPressed: _secuencia.length == 5
-                  ? () {
-                      agregarAmigo();
-                      
+                    } else {
+                      return Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                      );
                     }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(AppColors.primaryGreen),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  }),
                 ),
               ),
-              child: const Text(
-                'Añadir Amigo',
-                style: TextStyle(
-                  fontFamily: 'YesevaOne',
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(height: 24),
+              GestureDetector(
+                onPanStart: (details) {
+                  _startPosition = details.globalPosition;
+                },
+                onPanUpdate: (details) {
+                  if (_startPosition != null) {
+                    final delta = details.globalPosition - _startPosition!;
+                    if (delta.distance > 50) {
+                      _procesarGesto(delta);
+                      _startPosition = null;
+                    }
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Text(
+                          'Desliza en cualquier dirección\npara agregar una flecha',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: IconButton(
+                          onPressed: () {
+                            setState(() => _secuencia.clear());
+                          },
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: Colors.red.withOpacity(0.7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: ElevatedButton(
+                  onPressed: _secuencia.length == 5
+                      ? () {
+                          agregarAmigo();
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(AppColors.primaryGreen),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Añadir Amigo',
+                    style: TextStyle(
+                      fontFamily: 'YesevaOne',
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        ));
   }
 }

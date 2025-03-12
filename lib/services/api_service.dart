@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:proyecto_verde_participativo/constants/api_codes.dart';
+import 'package:proyecto_verde_participativo/models/api_response.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
 import '../models/accion.dart';
 import '../models/medalla.dart';
@@ -8,6 +11,7 @@ class ApiService {
   late final Dio _dio;
   final notificationService = NotificationService();
   static final ApiService _instance = ApiService._internal();
+  BuildContext? _context;
 
   factory ApiService() {
     return _instance;
@@ -42,20 +46,23 @@ class ApiService {
     ));
   }
 
+  // Método para establecer el contexto
+  void setContext(BuildContext context) {
+    _context = context;
+  }
+
   // Método genérico para GET
   Future<T> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? parser,
+    bool showMessages = false,
   }) async {
     try {
       final response = await _dio.get(path, queryParameters: queryParameters);
-      if (parser != null) {
-        return parser(response.data);
-      }
-      return response.data as T;
+      return _processResponse<T>(response, parser, showMessages);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw _handleError(e, showMessages);
     }
   }
 
@@ -65,6 +72,7 @@ class ApiService {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? parser,
+    bool showMessages = false,
   }) async {
     try {
       final response = await _dio.post(
@@ -72,12 +80,9 @@ class ApiService {
         data: data,
         queryParameters: queryParameters,
       );
-      if (parser != null) {
-        return parser(response.data);
-      }
-      return response.data as T;
-    } on DioException catch (_) {
-      rethrow;
+      return _processResponse<T>(response, parser, showMessages);
+    } on DioException catch (e) {
+      throw _handleError(e, showMessages);
     }
   }
 
@@ -87,6 +92,7 @@ class ApiService {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? parser,
+    bool showMessages = false,
   }) async {
     try {
       final response = await _dio.put(
@@ -94,12 +100,9 @@ class ApiService {
         data: data,
         queryParameters: queryParameters,
       );
-      if (parser != null) {
-        return parser(response.data);
-      }
-      return response.data as T;
+      return _processResponse<T>(response, parser, showMessages);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw _handleError(e, showMessages);
     }
   }
 
@@ -108,16 +111,14 @@ class ApiService {
     String path, {
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? parser,
+    bool showMessages = false,
   }) async {
     try {
       final response =
           await _dio.delete(path, queryParameters: queryParameters);
-      if (parser != null) {
-        return parser(response.data);
-      }
-      return response.data as T;
+      return _processResponse<T>(response, parser, showMessages);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw _handleError(e, showMessages);
     }
   }
 
@@ -128,6 +129,7 @@ class ApiService {
     String fileField = 'file',
     Map<String, dynamic>? extraData,
     T Function(dynamic)? parser,
+    bool showMessages = false,
   }) async {
     try {
       FormData formData = FormData.fromMap({
@@ -136,22 +138,58 @@ class ApiService {
       });
 
       final response = await _dio.post(path, data: formData);
-      if (parser != null) {
-        return parser(response.data);
-      }
-      return response.data as T;
+      return _processResponse<T>(response, parser, showMessages);
     } on DioException catch (e) {
-      throw _handleError(e);
+      throw _handleError(e, showMessages);
+    }
+  }
+
+  // Método para procesar respuestas con el nuevo formato
+  T _processResponse<T>(
+    Response response,
+    T Function(dynamic)? parser,
+    bool showMessages,
+  ) {
+    final apiResponse = ApiResponse<dynamic>.fromJson(
+      response.data,
+      (data) => data,
+    );
+
+    if (apiResponse.isSuccess) {
+      if (showMessages && _context != null) {
+        notificationService.showSuccess(_context!, apiResponse.message);
+      }
+
+      if (parser != null && apiResponse.data != null) {
+        return parser(apiResponse.data);
+      }
+
+      // Si no hay parser o no hay datos, devolvemos los datos directamente
+      // o un valor por defecto según el tipo genérico
+      if (apiResponse.data != null) {
+        return apiResponse.data as T;
+      } else {
+        // Para tipos que pueden ser null
+        return null as T;
+      }
+    } else {
+      // Si no es exitoso, lanzamos una excepción con el mensaje de error
+      final exception = Exception(apiResponse.errorMessage);
+      if (showMessages && _context != null) {
+        notificationService.showError(_context!, apiResponse.errorMessage);
+      }
+      throw exception;
     }
   }
 
   // Implementación específica para acciones
-  Future<List<Accion>> getAcciones() async {
+  Future<List<Accion>> getAcciones({bool showMessages = false}) async {
     return get<List<Accion>>(
       '/acciones',
       parser: (data) => (data as List)
           .map((json) => Accion.fromJson(json as Map<String, dynamic>))
           .toList(),
+      showMessages: showMessages,
     );
   }
 
@@ -161,6 +199,7 @@ class ApiService {
     required String imagePath,
     double? latitude,
     double? longitude,
+    bool showMessages = false,
   }) async {
     String tipoAccion;
     switch (tipo.toLowerCase()) {
@@ -186,20 +225,23 @@ class ApiService {
         'latitud': latitude,
         'longitud': longitude,
       },
+      showMessages: showMessages,
     );
   }
 
   // Implementación específica para medallas
-  Future<List<Medalla>> getMedallas() async {
+  Future<List<Medalla>> getMedallas({bool showMessages = false}) async {
     return get<List<Medalla>>(
       '/medallas',
       parser: (data) => (data as List)
           .map((json) => Medalla.fromJson(json as Map<String, dynamic>))
           .toList(),
+      showMessages: showMessages,
     );
   }
 
-  Future<List<MedallaUsuario>?> getMedallasUsuario(String? userId) async {
+  Future<List<MedallaUsuario>?> getMedallasUsuario(String? userId,
+      {bool showMessages = false}) async {
     // Si userId es null, retornar null o una lista vacía
     if (userId == null) return null;
 
@@ -210,47 +252,93 @@ class ApiService {
             .map(
                 (json) => MedallaUsuario.fromJson(json as Map<String, dynamic>))
             .toList(),
+        showMessages: showMessages,
       );
     } catch (e) {
       return []; // También puedes retornar una lista vacía `return [];`
     }
   }
 
-  Future<void> resetPendingMedallas(String userId) async {
-    await get('/users/$userId/medallas/reset-pending');
+  Future<void> resetPendingMedallas(String userId,
+      {bool showMessages = false}) async {
+    await get('/users/$userId/medallas/reset-pending',
+        showMessages: showMessages);
   }
 
-  Exception _handleError(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-        return Exception('Error de conexión');
-      case DioExceptionType.sendTimeout:
-        return Exception('Error de tiempo de espera en la conexión');
-      case DioExceptionType.receiveTimeout:
-        return Exception('Error de tiempo de espera en la conexión');
-      case DioExceptionType.badResponse:
-        final statusCode = e.response?.statusCode;
-        final data = e.response?.data;
-        switch (statusCode) {
-          case 400:
-            return Exception(data?['message'] ?? 'Solicitud incorrecta');
-          case 401:
-            return Exception('No autorizado');
-          case 403:
-            return Exception('Acceso denegado');
-          case 404:
-            return Exception('Recurso no encontrado');
-          case 409:
-            return Exception(e.response?.data ?? 'Conflicto con el recurso');
-          case 500:
-            return Exception('Error interno del servidor');
-          default:
-            return Exception('Error en la respuesta del servidor');
-        }
-      case DioExceptionType.cancel:
-        return Exception('Solicitud cancelada');
+  Exception _handleError(DioException e, bool showMessages) {
+    String errorMessage;
+    String errorCode;
+
+    if (e.response != null && e.response!.data != null) {
+      try {
+        // Intentamos parsear la respuesta como ApiResponse
+        final apiResponse = ApiResponse<dynamic>.fromJson(
+          e.response!.data,
+          (data) => data,
+        );
+        errorMessage = apiResponse.errorMessage;
+        errorCode = apiResponse.code;
+      } catch (_) {
+        // Si no se puede parsear, usamos el código de estado HTTP
+        errorCode = e.response!.statusCode.toString();
+        errorMessage = _getErrorMessageFromStatusCode(e.response!.statusCode);
+      }
+    } else {
+      // Si no hay respuesta, determinamos el tipo de error
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+          errorCode = ApiCodes.codeServiceUnavailable;
+          errorMessage = "Error de conexión";
+          break;
+        case DioExceptionType.sendTimeout:
+          errorCode = ApiCodes.codeServiceUnavailable;
+          errorMessage = "Error de tiempo de espera en la conexión";
+          break;
+        case DioExceptionType.receiveTimeout:
+          errorCode = ApiCodes.codeServiceUnavailable;
+          errorMessage = "Error de tiempo de espera en la conexión";
+          break;
+        case DioExceptionType.cancel:
+          errorCode = ApiCodes.codeServiceUnavailable;
+          errorMessage = "Solicitud cancelada";
+          break;
+        default:
+          errorCode = ApiCodes.codeInternalServerError;
+          errorMessage = "Error de conexión al servidor";
+          break;
+      }
+    }
+
+    // Mostrar notificación si está habilitado
+    if (showMessages && _context != null) {
+      notificationService.showError(_context!, errorMessage);
+    }
+
+    return Exception(errorMessage);
+  }
+
+  String _getErrorMessageFromStatusCode(int? statusCode) {
+    switch (statusCode) {
+      case 400:
+        return ApiCodes.getMessageForCode(ApiCodes.codeBadRequest);
+      case 401:
+        return ApiCodes.getMessageForCode(ApiCodes.codeUnauthorized);
+      case 403:
+        return ApiCodes.getMessageForCode(ApiCodes.codeForbidden);
+      case 404:
+        return ApiCodes.getMessageForCode(ApiCodes.codeNotFound);
+      case 405:
+        return ApiCodes.getMessageForCode(ApiCodes.codeMethodNotAllowed);
+      case 409:
+        return ApiCodes.getMessageForCode(ApiCodes.codeConflict);
+      case 422:
+        return ApiCodes.getMessageForCode(ApiCodes.codeValidationError);
+      case 500:
+        return ApiCodes.getMessageForCode(ApiCodes.codeInternalServerError);
+      case 503:
+        return ApiCodes.getMessageForCode(ApiCodes.codeServiceUnavailable);
       default:
-        return Exception('Error de conexión al servidor');
+        return "Error desconocido";
     }
   }
 }

@@ -34,6 +34,7 @@ class PersonajeProvider with ChangeNotifier {
     required String barba,
     required String detalleFacial,
     required String detalleAdicional,
+    bool showMessages = false,
   }) async {
     _cabello = cabello;
     _vestimenta = vestimenta;
@@ -49,76 +50,67 @@ class PersonajeProvider with ChangeNotifier {
     await prefs.setString('detalleFacial', detalleFacial);
     await prefs.setString('detalleAdicional', detalleAdicional);
 
-    // Actualizar en el backend
-    try {
-      final userId = prefs.getString('userId');
-      if (userId != null) {
-        await _apiService.put('/users/$userId/profile', data: {
-          'cabello': cabello,
-          'vestimenta': vestimenta,
-          'barba': barba == 'default' || barba == '' ? '0' : barba,
-          'detalle_facial': detalleFacial == 'default' || detalleFacial == '' ? '0' : detalleFacial,
-          'detalle_adicional': detalleAdicional == 'default' || detalleAdicional == '' ? '0' : detalleAdicional,
-
-        });
-      }
-    } catch (e) {
-      debugPrint('Error al actualizar el perfil en el backend: $e');
-    }
-
     notifyListeners();
   }
 
-  Future<void> _actualizarBackend() async {
+  Future<void> _actualizarBackend({bool showMessages = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
       if (userId != null) {
-        await _apiService.put('/users/$userId/profile', data: {
-          'cabello': _cabello,
-          'vestimenta': _vestimenta,
-          'barba': _barba == 'default' ? '0' : _barba,
-          'detalle_facial': _detalleFacial == 'default' ? '0' : _detalleFacial,
-          'detalle_adicional': _detalleAdicional == 'default' ? '0' : _detalleAdicional,
-        });
+        await _apiService.put(
+          '/users/$userId/profile/edit',
+          data: {
+            'cabello': _cabello,
+            'vestimenta': _vestimenta,
+            'barba': _barba == 'default' ? '0' : _barba,
+            'detalle_facial':
+                _detalleFacial == 'default' ? '0' : _detalleFacial,
+            'detalle_adicional':
+                _detalleAdicional == 'default' ? '0' : _detalleAdicional,
+          },
+          showMessages: showMessages,
+        );
       }
     } catch (e) {
       debugPrint('Error al actualizar el perfil en el backend: $e');
     }
   }
 
-  Future<void> setCabello(String value) async {
+  Future<void> setCabello(String value, {bool showMessages = false}) async {
     _cabello = value;
     await _guardarLocal('cabello', value);
-    await _actualizarBackend();
+    await _actualizarBackend(showMessages: showMessages);
     notifyListeners();
   }
 
-  Future<void> setVestimenta(String value) async {
+  Future<void> setVestimenta(String value, {bool showMessages = false}) async {
     _vestimenta = value;
     await _guardarLocal('vestimenta', value);
-    await _actualizarBackend();
+    await _actualizarBackend(showMessages: showMessages);
     notifyListeners();
   }
 
-  Future<void> setBarba(String value) async {
+  Future<void> setBarba(String value, {bool showMessages = false}) async {
     _barba = value;
     await _guardarLocal('barba', value);
-    await _actualizarBackend();
+    await _actualizarBackend(showMessages: showMessages);
     notifyListeners();
   }
 
-  Future<void> setDetalleFacial(String value) async {
+  Future<void> setDetalleFacial(String value,
+      {bool showMessages = false}) async {
     _detalleFacial = value;
     await _guardarLocal('detalleFacial', value);
-    await _actualizarBackend();
+    await _actualizarBackend(showMessages: showMessages);
     notifyListeners();
   }
 
-  Future<void> setDetalleAdicional(String value) async {
+  Future<void> setDetalleAdicional(String value,
+      {bool showMessages = false}) async {
     _detalleAdicional = value;
     await _guardarLocal('detalleAdicional', value);
-    await _actualizarBackend();
+    await _actualizarBackend(showMessages: showMessages);
     notifyListeners();
   }
 
@@ -126,4 +118,4 @@ class PersonajeProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
   }
-} 
+}

@@ -92,13 +92,17 @@ class _MisAmigosState extends State<MisAmigos> {
                   ActionUserPersonaje(userId: amigo.friendId, size: 100),
                   if (amigo.slogan.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      '"${amigo.slogan}"',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
+                    Expanded(
+                      child: Text(
+                        '"${amigo.slogan}"',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -194,6 +198,13 @@ class _MisAmigosState extends State<MisAmigos> {
     _cargarAmigos();
   }
 
+  @override
+  void dispose() {
+    // Actualizar estadísticas cuando se cierre la página de amigos
+    HomePage.actualizarEstadisticas(context);
+    super.dispose();
+  }
+
   Future<void> _cargarAmigos() async {
     try {
       setState(() => _isLoading = true);
@@ -238,162 +249,163 @@ class _MisAmigosState extends State<MisAmigos> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.62,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      decoration: BoxDecoration(
-        color: Color(AppColors.darkGreen),
-        borderRadius: BorderRadius.circular(27),
-      ),
-      child: SafeArea(
-        bottom: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          const SizedBox(height: 32),
-          Center(
-            child: Text(
-              'Mis Amigos',
-              style: TextStyle(
-                fontFamily: 'YesevaOne',
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white))
-                : _amigos.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No tienes amigos ni solicitudes pendientes',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 16,
-                          ),
-                        ),
-                      )
-                    : ListView(
-                        controller: widget.scrollController,
-                        children: [
-                          // Solicitudes Recibidas
-                          if (_amigos
-                              .any((amigo) => amigo.pendingId == _userId)) ...[
-                            _buildSectionTitle('Solicitudes Recibidas'),
-                            ..._amigos
-                                .where((amigo) => amigo.pendingId == _userId)
-                                .map((amigo) =>
-                                    _buildFriendCard(amigo, true, false)),
-                          ],
-
-                          // Amigos
-                          if (_amigos
-                              .any((amigo) => amigo.pendingId == null)) ...[
-                            _buildSectionTitle('Amigos'),
-                            ..._amigos
-                                .where((amigo) => amigo.pendingId == null)
-                                .map((amigo) =>
-                                    _buildFriendCard(amigo, false, false)),
-                          ],
-
-                          // Solicitudes Enviadas
-                          if (_amigos.any((amigo) =>
-                              amigo.pendingId != null &&
-                              amigo.pendingId != _userId)) ...[
-                            _buildSectionTitle('Solicitudes Enviadas'),
-                            ..._amigos
-                                .where((amigo) =>
-                                    amigo.pendingId != null &&
-                                    amigo.pendingId != _userId)
-                                .map((amigo) =>
-                                    _buildFriendCard(amigo, false, true)),
-                          ],
-                        ],
-                      ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(AppColors.primaryGreen),
-                  Color(AppColors.primaryGreenDark),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(AppColors.primaryGreen).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+        height: MediaQuery.of(context).size.height * 0.62,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: BoxDecoration(
+          color: Color(AppColors.darkGreen),
+          borderRadius: BorderRadius.circular(27),
+        ),
+        child: SafeArea(
+          bottom: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              Center(
+                child: Text(
+                  'Mis Amigos',
+                  style: TextStyle(
+                    fontFamily: 'YesevaOne',
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => Container(
-                      decoration: BoxDecoration(
-                        color: Color(AppColors.darkGreen),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(27),
-                          topRight: Radius.circular(27),
-                        ),
-                      ),
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: SingleChildScrollView(
-                        child: AgregarAmigoBottomSheet(
-                          scrollController: widget.scrollController,
-                        ),
-                      ),
-                    ),
-                  ).then((secuencia) async {
-                    await HomePage.actualizarEstadisticas(context);
-                    _cargarAmigos();
-                  });
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.person_add_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Agregar Amigos',
-                      style: TextStyle(
-                        fontFamily: 'YesevaOne',
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white))
+                    : _amigos.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No tienes amigos ni solicitudes pendientes',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 16,
+                              ),
+                            ),
+                          )
+                        : ListView(
+                            controller: widget.scrollController,
+                            children: [
+                              // Solicitudes Recibidas
+                              if (_amigos.any(
+                                  (amigo) => amigo.pendingId == _userId)) ...[
+                                _buildSectionTitle('Solicitudes Recibidas'),
+                                ..._amigos
+                                    .where(
+                                        (amigo) => amigo.pendingId == _userId)
+                                    .map((amigo) =>
+                                        _buildFriendCard(amigo, true, false)),
+                              ],
+
+                              // Amigos
+                              if (_amigos
+                                  .any((amigo) => amigo.pendingId == null)) ...[
+                                _buildSectionTitle('Amigos'),
+                                ..._amigos
+                                    .where((amigo) => amigo.pendingId == null)
+                                    .map((amigo) =>
+                                        _buildFriendCard(amigo, false, false)),
+                              ],
+
+                              // Solicitudes Enviadas
+                              if (_amigos.any((amigo) =>
+                                  amigo.pendingId != null &&
+                                  amigo.pendingId != _userId)) ...[
+                                _buildSectionTitle('Solicitudes Enviadas'),
+                                ..._amigos
+                                    .where((amigo) =>
+                                        amigo.pendingId != null &&
+                                        amigo.pendingId != _userId)
+                                    .map((amigo) =>
+                                        _buildFriendCard(amigo, false, true)),
+                              ],
+                            ],
+                          ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(AppColors.primaryGreen),
+                      Color(AppColors.primaryGreenDark),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(AppColors.primaryGreen).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => Container(
+                          decoration: BoxDecoration(
+                            color: Color(AppColors.darkGreen),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(27),
+                              topRight: Radius.circular(27),
+                            ),
+                          ),
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: SingleChildScrollView(
+                            child: AgregarAmigoBottomSheet(
+                              scrollController: widget.scrollController,
+                            ),
+                          ),
+                        ),
+                      ).then((secuencia) async {
+                        await HomePage.actualizarEstadisticas(context);
+                        _cargarAmigos();
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.person_add_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Agregar Amigos',
+                          style: TextStyle(
+                            fontFamily: 'YesevaOne',
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 6),
+            ],
           ),
-          const SizedBox(height: 6),
-        ],
-      ),)
-    );
+        ));
   }
 }

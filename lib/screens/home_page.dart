@@ -192,7 +192,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         Provider.of<PersonajeProvider>(context, listen: false);
 
     setState(() {
-      _frase = prefs.getString('slogan') ?? '';
+      _frase = prefs.getString('slogan') ?? 'ViVe tu mejor vida';
       _nombre = prefs.getString('nombre') ?? '';
       _apellido = prefs.getString('apellido') ?? '';
       _acciones = prefs.getInt('acciones') ?? 0;
@@ -683,6 +683,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           color: Color(AppColors.transparent),
           child: Container(
             height: MediaQuery.of(context).size.height * 0.6,
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom,
+            ),
             decoration: BoxDecoration(
                 color: Color(AppColors.darkGreen),
                 borderRadius: const BorderRadius.only(
@@ -803,142 +806,141 @@ class MenuPrincipal extends StatelessWidget {
   Widget build(BuildContext context) {
     final homePageState = context.findAncestorStateOfType<_HomePageState>();
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 5),
-          Center(
-            child: Text(
-              'Menú Principal',
-              style: TextStyle(
-                fontFamily: 'YesevaOne',
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 21),
+            Center(
+              child: Text(
+                'Menú Principal',
+                style: TextStyle(
+                  fontFamily: 'YesevaOne',
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildMenuButton(
-            icon: Icons.military_tech,
-            title: 'Mis Medallas',
-            subtitle: 'Revisa tus logros',
-            pendingCount: pendingCount,
-            onTap: () async {
-              HapticFeedback.lightImpact();
-              final prefs = await SharedPreferences.getInstance();
-              final userId = prefs.getString('userId');
-              if (userId != null) {
+            const SizedBox(height: 16),
+            _buildMenuButton(
+              icon: Icons.military_tech,
+              title: 'Mis Medallas',
+              subtitle: 'Revisa tus logros',
+              pendingCount: pendingCount,
+              onTap: () async {
+                HapticFeedback.lightImpact();
+                final prefs = await SharedPreferences.getInstance();
+                final userId = prefs.getString('userId');
+                if (userId != null) {
+                  showCustomBottomSheet(
+                    context,
+                    (scrollController) => MisMedallas(
+                      userId: userId,
+                      scrollController: scrollController,
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildMenuButton(
+              icon: Icons.eco_outlined,
+              title: 'Mis Acciones',
+              subtitle: 'Registro de tus acciones',
+              pendingCount: 0,
+              onTap: () {
+                HapticFeedback.lightImpact();
                 showCustomBottomSheet(
                   context,
-                  (scrollController) => MisMedallas(
-                    userId: userId,
+                  (scrollController) => MisAcciones(
+                    userId: "",
                     scrollController: scrollController,
                   ),
                 );
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildMenuButton(
-            icon: Icons.eco_outlined,
-            title: 'Mis Acciones',
-            subtitle: 'Registro de tus acciones',
-            pendingCount: 0,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              showCustomBottomSheet(
-                context,
-                (scrollController) => MisAcciones(
-                  userId: "",
-                  scrollController: scrollController,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildMenuButton(
-            icon: Icons.style_outlined,
-            title: 'Accesorios',
-            subtitle: 'Personaliza tu personaje',
-            pendingCount: 0,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              showCustomBottomSheet(
-                context,
-                (scrollController) => Accesorios(
-                  scrollController: scrollController,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(AppColors.primaryGreen),
-                  Color(AppColors.primaryGreenDark),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(AppColors.primaryGreen).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              },
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SubirAccionPage(),
-                    ),
-                  ).then((_) {
-                    // Actualizar datos cuando regrese de SubirAccionPage
-                    if (homePageState != null) {
-                      homePageState._cargarDatosIniciales();
-                    }
-                  });
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.camera_alt_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Subir Una Acción',
-                      style: TextStyle(
-                        fontFamily: 'YesevaOne',
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+            const SizedBox(height: 16),
+            _buildMenuButton(
+              icon: Icons.style_outlined,
+              title: 'Accesorios',
+              subtitle: 'Personaliza tu personaje',
+              pendingCount: 0,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                showCustomBottomSheet(
+                  context,
+                  (scrollController) => Accesorios(
+                    scrollController: scrollController,
+                  ),
+                );
+              },
+            ),
+            Expanded(child: Container()),
+            Container(
+              width: double.infinity,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(AppColors.primaryGreen),
+                    Color(AppColors.primaryGreenDark),
                   ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(AppColors.primaryGreen).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SubirAccionPage(),
+                      ),
+                    ).then((_) {
+                      if (homePageState != null) {
+                        homePageState._cargarDatosIniciales();
+                      }
+                    });
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Subir Una Acción',
+                        style: TextStyle(
+                          fontFamily: 'YesevaOne',
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ));
   }
 
   Widget _buildMenuButton({

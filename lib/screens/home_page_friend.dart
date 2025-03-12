@@ -27,6 +27,8 @@ class _HomePageState extends State<HomePageFriend>
   final ApiService _apiService = ApiService();
   late String amigoId;
 
+  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+
   String _nombre = '';
   String _apellido = '';
   String _frase = '';
@@ -153,6 +155,7 @@ class _HomePageState extends State<HomePageFriend>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       extendBody: true,
       extendBodyBehindAppBar: true,
       body: Container(
@@ -289,6 +292,9 @@ class _HomePageState extends State<HomePageFriend>
       bottomSheet: Material(
         color: Color(AppColors.transparent),
         child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
           height: MediaQuery.of(context).size.height * 0.6,
           decoration: BoxDecoration(
               color: Color(AppColors.darkGreen),
@@ -408,7 +414,8 @@ class MenuPrincipal extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.fromLTRB(
+          16.0, 16.0, 16.0, MediaQuery.of(context).padding.bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -510,7 +517,6 @@ class MenuPrincipal extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 42),
         ],
       ),
     );

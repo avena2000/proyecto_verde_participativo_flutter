@@ -14,15 +14,19 @@ class AccionesProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchAcciones(String userId) async {
+  Future<void> fetchAcciones(String userId, {bool showMessages = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await _apiService.get('/users/$userId/actions');
-      final List<dynamic> actionsList = response;
-      _acciones = actionsList.map((json) => UserAction.fromJson(json)).toList();
+      final response = await _apiService.get(
+        '/users/$userId/actions',
+        parser: (data) =>
+            (data as List).map((json) => UserAction.fromJson(json)).toList(),
+        showMessages: showMessages,
+      );
+      _acciones = response;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -31,9 +35,13 @@ class AccionesProvider with ChangeNotifier {
     }
   }
 
-  Future<void> eliminarAccion(String accionId) async {
+  Future<void> eliminarAccion(String accionId,
+      {bool showMessages = false}) async {
     try {
-      await _apiService.delete('/actions/$accionId');
+      await _apiService.delete(
+        '/actions/$accionId',
+        showMessages: showMessages,
+      );
       // Actualizar la lista local después de una eliminación exitosa
       _acciones.removeWhere((accion) => accion.id == accionId);
       notifyListeners();
@@ -49,6 +57,7 @@ class AccionesProvider with ChangeNotifier {
     required String imagePath,
     double? latitude,
     double? longitude,
+    bool showMessages = false,
   }) async {
     try {
       _isLoading = true;
@@ -61,10 +70,11 @@ class AccionesProvider with ChangeNotifier {
         imagePath: imagePath,
         latitude: latitude,
         longitude: longitude,
+        showMessages: showMessages,
       );
 
       // Recargar la lista de acciones después de subir una nueva
-      await fetchAcciones(userId);
+      await fetchAcciones(userId, showMessages: showMessages);
     } catch (e) {
       _error = e.toString();
       _isLoading = false;

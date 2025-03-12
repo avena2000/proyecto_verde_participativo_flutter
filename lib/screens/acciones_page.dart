@@ -111,7 +111,7 @@ class _MisAccionesState extends State<MisAcciones>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Error al cargar las acciones',
+                            '¡Sube tus acciones para comenzar!',
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.7),
                               fontSize: 16,
@@ -323,7 +323,7 @@ class _MisAccionesState extends State<MisAcciones>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    accion.lugar,
+                    "${accion.lugar.isNotEmpty ? accion.lugar : ''}${accion.lugar.isNotEmpty && accion.ciudad.isNotEmpty ? ', ' : ''}${accion.ciudad}",
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 16,

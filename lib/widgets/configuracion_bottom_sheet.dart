@@ -24,7 +24,7 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
   final _apiService = ApiService();
   final _nombreController = TextEditingController();
   final _apellidoController = TextEditingController();
-  String? _selectedSlogan;
+  String _selectedSlogan = "ViVe tu mejor vida";
   List<String> _availableSlogans = ["ViVe tu mejor vida"];
   final notificationService = NotificationService();
   bool _isLoading = false;
@@ -32,8 +32,23 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
-    _cargarSlogans();
+    _inicializarDatos();
+  }
+
+  Future<void> _inicializarDatos() async {
+    try {
+      // Primero cargamos los slogans disponibles
+      await _cargarSlogans();
+      // Después cargamos los datos del usuario
+      await _cargarDatos();
+    } catch (e) {
+      if (mounted) {
+        notificationService.showError(
+          context,
+          'Error al cargar los datos',
+        );
+      }
+    }
   }
 
   Future<void> _cargarSlogans() async {
@@ -43,7 +58,7 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
       if (userId == null) return;
 
       final response = await _apiService.get('/users/$userId/medallas/slogans');
-      if (response != null) {
+      if (response != null && mounted) {
         setState(() {
           _availableSlogans = [
             "ViVe tu mejor vida",
@@ -52,20 +67,27 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
         });
       }
     } catch (e) {
-      notificationService.showError(
-        context,
-        'Error al cargar los slogans disponibles',
-      );
+      if (mounted) {
+        notificationService.showError(
+          context,
+          'Error al cargar los slogans disponibles',
+        );
+      }
     }
   }
 
   Future<void> _cargarDatos() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _nombreController.text = prefs.getString('nombre') ?? '';
-      _apellidoController.text = prefs.getString('apellido') ?? '';
-      _selectedSlogan = prefs.getString('slogan') ?? _availableSlogans[0];
-    });
+    if (mounted) {
+      final savedSlogan = prefs.getString('slogan');
+      setState(() {
+        _nombreController.text = prefs.getString('nombre') ?? '';
+        _apellidoController.text = prefs.getString('apellido') ?? '';
+        if (savedSlogan != null && _availableSlogans.contains(savedSlogan)) {
+          _selectedSlogan = savedSlogan;
+        }
+      });
+    }
   }
 
   Future<void> _actualizarDatos() async {
@@ -78,16 +100,18 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
       final userId = prefs.getString('userId');
 
       if (userId == null) return;
-
+      final slogan = _selectedSlogan == ""
+          ? _availableSlogans[0]
+          : _selectedSlogan;
       await _apiService.put('/users/$userId/profile/edit', data: {
         'nombre': _nombreController.text,
         'apellido': _apellidoController.text,
-        'slogan': _selectedSlogan,
+        'slogan': slogan,
       });
 
       await prefs.setString('nombre', _nombreController.text);
       await prefs.setString('apellido', _apellidoController.text);
-      await prefs.setString('slogan', _selectedSlogan ?? _availableSlogans[0]);
+      await prefs.setString('slogan', _selectedSlogan);
 
       widget.onUpdateComplete();
     } catch (e) {
@@ -114,144 +138,152 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
         padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 6),
         child: Form(
           key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Center(
-              child: Text(
-                'Configuración',
-                style: TextStyle(
-                  fontFamily: 'YesevaOne',
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _nombreController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Nombre',
-                labelStyle: const TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(AppColors.primaryGreen)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor ingresa tu nombre';
-                }
-                return null;
-              },
-              onChanged: (_) => _actualizarDatos(),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _apellidoController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Apellido',
-                labelStyle: const TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(AppColors.primaryGreen)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor ingresa tu apellido';
-                }
-                return null;
-              },
-              onChanged: (_) => _actualizarDatos(),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedSlogan ?? _availableSlogans[0],
-              style: const TextStyle(color: Colors.white),
-              dropdownColor: Colors.black87,
-              decoration: InputDecoration(
-                labelText: 'Frase personal',
-                labelStyle: const TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(AppColors.primaryGreen)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              items: _availableSlogans.map((String slogan) {
-                return DropdownMenuItem<String>(
-                  value: slogan,
-                  child: Text(
-                    slogan,
-                    style: const TextStyle(color: Colors.white),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Center(
+                child: Text(
+                  'Configuración',
+                  style: TextStyle(
+                    fontFamily: 'YesevaOne',
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedSlogan = newValue;
-                });
-                _actualizarDatos();
-              },
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _cerrarSesion,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.withOpacity(0.2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _nombreController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Nombre',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Color(AppColors.primaryGreen)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text(
-                        'Cerrar Sesión',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa tu nombre';
+                  }
+                  return null;
+                },
+                onChanged: (_) => _actualizarDatos(),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _apellidoController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Apellido',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Color(AppColors.primaryGreen)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.red),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa tu apellido';
+                  }
+                  return null;
+                },
+                onChanged: (_) => _actualizarDatos(),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedSlogan,
+                style: const TextStyle(color: Colors.white),
+                dropdownColor: Colors.black87,
+                decoration: InputDecoration(
+                  labelText: 'Frase personal',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide:
+                        BorderSide(color: Color(AppColors.primaryGreen)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                items: _availableSlogans.map((String slogan) {
+                  return DropdownMenuItem<String>(
+                    value: slogan,
+                    child: Text(
+                      slogan,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedSlogan = newValue;
+                    });
+                    _actualizarDatos();
+                  }
+                },
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _cerrarSesion,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.withOpacity(0.2),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator()
+                      : const Text(
+                          'Cerrar Sesión',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -26,6 +26,9 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ApiService().setContext(context);
+    });
     _cargarEmail();
   }
 
@@ -52,6 +55,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
           'apellido': _apellidoController.text,
           'numero': _telefonoController.text,
         },
+        showMessages: true,
       );
 
       await prefs.setBool('isPersonalInformation', true);
@@ -69,9 +73,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         CustomPageTransition(page: HomePage(key: HomePage.homeKey)),
         (route) => false,
       );
-    } catch (e) {
-      if (!mounted) return;
-      notificationService.showError(context, "Error al guardar la información");
+    } catch (_) {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

@@ -22,7 +22,7 @@ class SubirAccionPage extends StatefulWidget {
 }
 
 class _SubirAccionPageState extends State<SubirAccionPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   final ImagePicker _picker = ImagePicker();
   final NotificationService notificationService = NotificationService();
@@ -30,6 +30,27 @@ class _SubirAccionPageState extends State<SubirAccionPage>
     vsync: this,
     duration: const Duration(milliseconds: 300),
   );
+
+  // Controlador para la animación de rebote
+  late final AnimationController _bounceAnimationController =
+      AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+
+  // Animación de rebote usando un ciclo más natural
+  late final Animation<double> _bounceAnimation = TweenSequence<double>([
+    TweenSequenceItem(
+      tween: Tween<double>(begin: 0.0, end: -30.0)
+          .chain(CurveTween(curve: Curves.easeOut)),
+      weight: 1.0,
+    ),
+    TweenSequenceItem(
+      tween: Tween<double>(begin: -30.0, end: 0.0)
+          .chain(CurveTween(curve: Curves.bounceOut)),
+      weight: 1.0,
+    ),
+  ]).animate(_bounceAnimationController);
 
   int _currentPage = 0;
   double _verticalDragStart = 0;
@@ -40,6 +61,8 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   Position? _currentPosition;
   bool _isCompressing = false;
+  bool _isUploading = false;
+  bool _imagesPrecached = false;
 
   final List<String> imagenes = [
     'assets/acciones/accion_descubrimiento.png',
@@ -74,6 +97,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   void _handleVerticalDragStart(DragStartDetails details) {
     _verticalDragStart = details.globalPosition.dy;
     _isDraggingVertically = true;
+    _bounceAnimationController.stop();
   }
 
   void _handleVerticalDragUpdate(DragUpdateDetails details) {
@@ -101,24 +125,16 @@ class _SubirAccionPageState extends State<SubirAccionPage>
     }
   }
 
-  void _handleVerticalDragEnd(DragEndDetails details) {
-    _isDraggingVertically = false;
-    _lastHapticProgress = 0.0;
-
-    final currentProgress = _dragProgress;
-
-    // Animamos directamente desde el valor actual hasta 0
-    _dragAnimationController.value = currentProgress;
-    _dragAnimationController
-        .animateTo(
-      0.0,
-      curve: Curves.easeOutCubic,
-      duration: Duration(milliseconds: (300 * currentProgress).round()),
-    )
-        .whenComplete(() {
-      setState(() {
-        _dragProgress = 0.0;
-      });
+  void _startBounceAnimation() {
+    _bounceAnimationController.forward().then((_) {
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && !_isDraggingVertically) {
+            _bounceAnimationController.reset();
+            _startBounceAnimation();
+          }
+        });
+      }
     });
   }
 
@@ -130,6 +146,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
         _dragProgress = _dragAnimationController.value;
       });
     });
+
     _pageController.addListener(() {
       int next = _pageController.page?.round() ?? 0;
       if (_currentPage != next) {
@@ -138,6 +155,29 @@ class _SubirAccionPageState extends State<SubirAccionPage>
         });
       }
     });
+
+    // Configurar el listener de la animación de rebote para forzar rebuild
+    _bounceAnimationController.addListener(() {
+      setState(() {});
+    });
+
+    // Iniciar la animación de rebote con un pequeño delay inicial
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _startBounceAnimation();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_imagesPrecached) {
+      for (String imagen in imagenes) {
+        precacheImage(AssetImage(imagen), context);
+      }
+      _imagesPrecached = true;
+    }
   }
 
   Future<void> _obtenerUbicacion() async {
@@ -338,6 +378,10 @@ class _SubirAccionPageState extends State<SubirAccionPage>
       }
 
       try {
+        setState(() {
+          _isUploading = true;
+        });
+
         await accionesProvider.subirAccion(
           userId: userId,
           tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
@@ -353,10 +397,14 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
         setState(() {
           _image = null;
+          _isUploading = false;
         });
 
         Navigator.of(context).pop();
       } catch (e) {
+        setState(() {
+          _isUploading = false;
+        });
         notificationService.showError(
           context,
           'Error al subir la acción: ${e.toString()}',
@@ -468,23 +516,45 @@ class _SubirAccionPageState extends State<SubirAccionPage>
                       ),
                     ),
                     Positioned(
-                      bottom: (screenHeight * 0.10) - animationOffset,
+                      bottom: (screenHeight * 0.11) - animationOffset,
                       left: 0,
                       right: 0,
-                      child: const Icon(
-                        Icons.keyboard_arrow_up,
-                        color: Colors.white,
-                        size: 30,
+                      child: AnimatedBuilder(
+                        animation: _bounceAnimation,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: _isDraggingVertically
+                                ? Offset.zero
+                                : Offset(0, _bounceAnimation.value),
+                            child: child,
+                          );
+                        },
+                        child: const Icon(
+                          Icons.keyboard_arrow_up,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                       ),
                     ),
                     Positioned(
-                      bottom: (screenHeight * 0.05) - animationOffset,
+                      bottom: (screenHeight * 0.06) - animationOffset,
                       left: 0,
                       right: 0,
-                      child: const Icon(
-                        Icons.camera_alt_rounded,
-                        color: Colors.white,
-                        size: 40,
+                      child: AnimatedBuilder(
+                        animation: _bounceAnimation,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: _isDraggingVertically
+                                ? Offset.zero
+                                : Offset(0, _bounceAnimation.value),
+                            child: child,
+                          );
+                        },
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
                       ),
                     ),
                   ],
@@ -548,20 +618,20 @@ class _SubirAccionPageState extends State<SubirAccionPage>
           ),
         ),
         IgnorePointer(
-          ignoring: !_isCompressing,
+          ignoring: !_isCompressing && !_isUploading,
           child: AnimatedOpacity(
-            opacity: _isCompressing ? 1.0 : 0.0,
+            opacity: (_isCompressing || _isUploading) ? 1.0 : 0.0,
             curve: Curves.easeInOut,
             duration: const Duration(milliseconds: 300),
             child: Container(
               color: Colors.black87,
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Procesando imagen...',
-                      style: TextStyle(
+                      _isUploading ? 'Subiendo...' : 'Procesando imagen...',
+                      style: const TextStyle(
                         color: Colors.white,
                         decoration: TextDecoration.none,
                         fontFamily: 'YesevaOne',
@@ -569,8 +639,8 @@ class _SubirAccionPageState extends State<SubirAccionPage>
                         fontSize: 24,
                       ),
                     ),
-                    SizedBox(height: 24),
-                    CircularProgressIndicator(
+                    const SizedBox(height: 24),
+                    const CircularProgressIndicator(
                       color: Colors.green,
                     ),
                   ],
@@ -583,8 +653,35 @@ class _SubirAccionPageState extends State<SubirAccionPage>
     );
   }
 
+  void _handleVerticalDragEnd(DragEndDetails details) {
+    _isDraggingVertically = false;
+    _lastHapticProgress = 0.0;
+
+    final currentProgress = _dragProgress;
+
+    // Animamos directamente desde el valor actual hasta 0
+    _dragAnimationController.value = currentProgress;
+    _dragAnimationController
+        .animateTo(
+      0.0,
+      curve: Curves.easeOutCubic,
+      duration: Duration(milliseconds: (300 * currentProgress).round()),
+    )
+        .whenComplete(() {
+      setState(() {
+        _dragProgress = 0.0;
+      });
+      // Reanudar la animación de rebote
+      if (mounted) {
+        _bounceAnimationController.reset();
+        _startBounceAnimation();
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _bounceAnimationController.dispose();
     _dragAnimationController.dispose();
     _pageController.dispose();
     super.dispose();

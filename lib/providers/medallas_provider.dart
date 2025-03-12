@@ -15,93 +15,105 @@ class MedallasProvider extends ChangeNotifier {
 
   bool _isFriend = false;
 
-  Future<void> cargarMedallas(String userId) async {
-  _isLoading = true;
-  _error = null;
-  notifyListeners();
+  Future<void> cargarMedallas(String userId,
+      {bool showMessages = false}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-  try {
-    // Cargar todas las medallas disponibles
-    final todasLasMedallas = await _apiService.getMedallas();
-
-    List<MedallaUsuario>? medallasUsuario = [];
     try {
-      medallasUsuario = await _apiService.getMedallasUsuario(userId);
-    } catch (e) {
-      medallasUsuario = [];
-    }
+      // Cargar todas las medallas disponibles
+      final todasLasMedallas =
+          await _apiService.getMedallas(showMessages: showMessages);
 
-    // Obtener SharedPreferences para calcular progreso
-    final prefs = await SharedPreferences.getInstance();
-    final String? storedUserId = prefs.getString('userId');
-
-    if (storedUserId != userId) {
-      _isFriend = true;
-    } else {
-      _isFriend = false;
-    }
-
-    // Procesar cada medalla y calcular su progreso
-    List<Medalla> medallasDesbloqueadas = [];
-    List<Medalla> medallasNoDesbloqueadas = [];
-
-    for (var medalla in todasLasMedallas) {
-      final medallasDesbloqueada =
-          medallasUsuario?.any((m) => m.idMedalla == medalla.id);
-      final progreso = _calcularProgreso(
-        medalla.requiereAmistades,
-        medalla.requierePuntos,
-        medalla.requiereAcciones,
-        medalla.requiereTorneos,
-        medalla.requiereVictoriaTorneos,
-        medalla.numeroRequerido,
-        prefs,
-      );
-
-      final nuevaMedalla = Medalla(
-        id: medalla.id,
-        nombre: medalla.nombre,
-        descripcion: medalla.descripcion,
-        dificultad: medalla.dificultad,
-        requiereAmistades: medalla.requiereAmistades,
-        requierePuntos: medalla.requierePuntos,
-        requiereAcciones: medalla.requiereAcciones,
-        requiereTorneos: medalla.requiereTorneos,
-        requiereVictoriaTorneos: medalla.requiereVictoriaTorneos,
-        numeroRequerido: medalla.numeroRequerido,
-        desbloqueada: medallasDesbloqueada ?? false,
-        progreso: progreso,
-      );
-
-      if (medallasDesbloqueada ?? false) {
-        medallasDesbloqueadas.add(nuevaMedalla);
-      } else {
-        medallasNoDesbloqueadas.add(nuevaMedalla);
+      List<MedallaUsuario>? medallasUsuario = [];
+      try {
+        medallasUsuario = await _apiService.getMedallasUsuario(userId,
+            showMessages: showMessages);
+      } catch (e) {
+        medallasUsuario = [];
       }
+
+      // Obtener SharedPreferences para calcular progreso
+      final prefs = await SharedPreferences.getInstance();
+      final String? storedUserId = prefs.getString('userId');
+
+      if (storedUserId != userId) {
+        _isFriend = true;
+      } else {
+        _isFriend = false;
+      }
+
+      // Procesar cada medalla y calcular su progreso
+      List<Medalla> medallasDesbloqueadas = [];
+      List<Medalla> medallasNoDesbloqueadas = [];
+
+      for (var medalla in todasLasMedallas) {
+        final medallasDesbloqueada =
+            medallasUsuario?.any((m) => m.idMedalla == medalla.id);
+        final progreso = _calcularProgreso(
+          medalla.requiereAmistades,
+          medalla.requierePuntos,
+          medalla.requiereAcciones,
+          medalla.requiereTorneos,
+          medalla.requiereVictoriaTorneos,
+          medalla.numeroRequerido,
+          prefs,
+        );
+
+        final nuevaMedalla = Medalla(
+          id: medalla.id,
+          nombre: medalla.nombre,
+          descripcion: medalla.descripcion,
+          dificultad: medalla.dificultad,
+          requiereAmistades: medalla.requiereAmistades,
+          requierePuntos: medalla.requierePuntos,
+          requiereAcciones: medalla.requiereAcciones,
+          requiereTorneos: medalla.requiereTorneos,
+          requiereVictoriaTorneos: medalla.requiereVictoriaTorneos,
+          numeroRequerido: medalla.numeroRequerido,
+          desbloqueada: medallasDesbloqueada ?? false,
+          progreso: progreso,
+        );
+
+        if (medallasDesbloqueada ?? false) {
+          medallasDesbloqueadas.add(nuevaMedalla);
+        } else {
+          medallasNoDesbloqueadas.add(nuevaMedalla);
+        }
+      }
+
+      // Ordenar las medallas desbloqueadas y no desbloqueadas por dificultad (de menos a más)
+      medallasDesbloqueadas
+          .sort((a, b) => a.dificultad.compareTo(b.dificultad));
+      medallasNoDesbloqueadas
+          .sort((a, b) => a.dificultad.compareTo(b.dificultad));
+
+      // Combinar las dos listas, primero las desbloqueadas y luego las no desbloqueadas
+      _medallas = [...medallasDesbloqueadas, ...medallasNoDesbloqueadas];
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
     }
-
-    // Ordenar las medallas desbloqueadas y no desbloqueadas por dificultad (de menos a más)
-    medallasDesbloqueadas.sort((a, b) => a.dificultad.compareTo(b.dificultad));
-    medallasNoDesbloqueadas.sort((a, b) => a.dificultad.compareTo(b.dificultad));
-
-    // Combinar las dos listas, primero las desbloqueadas y luego las no desbloqueadas
-    _medallas = [...medallasDesbloqueadas, ...medallasNoDesbloqueadas];
-
-    _isLoading = false;
-    notifyListeners();
-  } catch (e) {
-    _error = e.toString();
-    _isLoading = false;
-    notifyListeners();
   }
-}
 
-  double _calcularProgreso(bool requiereAmistades, bool requierePuntos, bool requiereAcciones, bool requiereTorneos, bool requiereVictoriaTorneos, int numeroRequerido, SharedPreferences prefs) {
+  double _calcularProgreso(
+      bool requiereAmistades,
+      bool requierePuntos,
+      bool requiereAcciones,
+      bool requiereTorneos,
+      bool requiereVictoriaTorneos,
+      int numeroRequerido,
+      SharedPreferences prefs) {
     double progreso = 0.0;
 
-
     if (requiereAmistades) {
-      final valorActual = prefs.getInt(_isFriend ? 'friend-amigos' : 'amigos') ?? 0;
+      final valorActual =
+          prefs.getInt(_isFriend ? 'friend-amigos' : 'amigos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -109,7 +121,8 @@ class MedallasProvider extends ChangeNotifier {
       }
     }
     if (requierePuntos) {
-      final valorActual = prefs.getInt(_isFriend ? 'friend-puntos' : 'puntos') ?? 0;
+      final valorActual =
+          prefs.getInt(_isFriend ? 'friend-puntos' : 'puntos') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
@@ -117,23 +130,28 @@ class MedallasProvider extends ChangeNotifier {
       }
     }
     if (requiereAcciones) {
-      final valorActual = prefs.getInt(_isFriend ? 'friend-acciones' : 'acciones') ?? 0;
+      final valorActual =
+          prefs.getInt(_isFriend ? 'friend-acciones' : 'acciones') ?? 0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
         progreso = valorActual / numeroRequerido;
       }
-    } 
+    }
     if (requiereTorneos) {
-      final valorActual = prefs.getInt(_isFriend ? 'friend-torneosParticipados' : 'torneos') ?? 0;
+      final valorActual =
+          prefs.getInt(_isFriend ? 'friend-torneosParticipados' : 'torneos') ??
+              0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
         progreso = valorActual / numeroRequerido;
       }
-    } 
+    }
     if (requiereVictoriaTorneos) {
-      final valorActual = prefs.getInt(_isFriend ? 'friend-torneosGanados' : 'victoriaTorneos') ?? 0;
+      final valorActual = prefs.getInt(
+              _isFriend ? 'friend-torneosGanados' : 'victoriaTorneos') ??
+          0;
       if (valorActual >= numeroRequerido) {
         progreso = 1;
       } else {
