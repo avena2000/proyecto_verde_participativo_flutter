@@ -58,6 +58,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   double _dragProgress = 0.0;
   double _lastHapticProgress = 0.0;
   File? _image;
+  Uint8List? _webImageBytes; // Añadir para almacenar bytes de imagen en web
 
   Position? _currentPosition;
   bool _isCompressing = false;
@@ -182,21 +183,16 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   Future<void> _obtenerUbicacion() async {
     try {
-      final permiso = await Permission.location.request();
-      if (permiso.isGranted) {
-        Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
-            .then((position) {
-          setState(() {
-            _currentPosition = position;
-          });
-          developer.log(
-              'Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
-        }).catchError((e) {
-          developer.log('Error al obtener ubicación: $e');
+      Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+          .then((position) {
+        setState(() {
+          _currentPosition = position;
         });
-      } else {
-        developer.log('Permiso de ubicación denegado');
-      }
+        developer.log(
+            'Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
+      }).catchError((e) {
+        developer.log('Error al obtener ubicación: $e');
+      });
     } catch (e) {
       developer.log('Error al solicitar permiso de ubicación: $e');
     }
@@ -236,13 +232,30 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   Future<void> _abrirCamara() async {
     try {
-      _obtenerUbicacion();
+      final permiso = await Permission.location.request();
+      if (!permiso.isGranted) {
+        developer.log('Permiso de ubicación denegado');
+        notificationService.showError(
+          context,
+          'Se necesita permiso para usar la ubicación, asegúrate de tenerla activada en la configuración de tu dispositivo',
+        );
+        return;
+      }
+    } catch (e) {
+      developer.log('Error al solicitar permiso de ubicación: $e');
+      return;
+    }
 
-      final permiso = await Permission.camera.request();
-      if (permiso.isGranted) {
+    try {
+      _obtenerUbicacion();
+      // Verificar si estamos en web o en móvil
+      if (kIsWeb) {
+        // En web, no necesitamos solicitar permisos de la misma manera
         final XFile? photo = await _picker.pickImage(
           source: ImageSource.camera,
           imageQuality: 85,
+          maxWidth: 1920,
+          maxHeight: 1080,
         );
 
         if (photo != null) {
@@ -254,53 +267,88 @@ class _SubirAccionPageState extends State<SubirAccionPage>
             // Leer la imagen como bytes
             final Uint8List imageBytes = await photo.readAsBytes();
 
-            // Procesar en segundo plano
-            final Uint8List? compressedBytes =
-                await compute(_procesarImagenEnBackground, [imageBytes, 85]);
-
-            if (compressedBytes != null) {
-              // Guardar el resultado
-              final directory = await getApplicationDocumentsDirectory();
-              final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final tempPath =
-                  '${directory.path}/compressed_image_$timestamp.jpg';
-
-              final compressedFile = File(tempPath);
-              await compressedFile.writeAsBytes(compressedBytes);
-
-              // Eliminar imagen anterior si existe
-              if (_image != null && await _image!.exists()) {
-                try {
-                  await _image!.delete();
-                } catch (e) {
-                  developer.log('Error al eliminar imagen anterior: $e');
-                }
-              }
-
-              setState(() {
-                _image = compressedFile;
-                _isCompressing = false;
-              });
-
-              _mostrarDialogoConfirmacion();
-            } else {
-              throw Exception('Error al procesar la imagen');
-            }
+            // En web, no podemos usar compute, así que procesamos directamente
+            // Podríamos reducir la calidad para web si es necesario
+            _webImageBytes = imageBytes;
+            _isCompressing = false;
+            _mostrarDialogoConfirmacion();
           } catch (e) {
             developer.log('Error al comprimir la imagen: $e');
+            // Para web, intentamos usar los bytes originales
+            final Uint8List imageBytes = await photo.readAsBytes();
             setState(() {
-              _image = File(photo.path);
+              _webImageBytes = imageBytes;
               _isCompressing = false;
             });
             _mostrarDialogoConfirmacion();
           }
         }
       } else {
-        developer.log('Permiso de cámara denegado');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Se necesita permiso para usar la cámara')),
-        );
+        // En móvil, solicitamos permisos normalmente
+        final permiso = await Permission.camera.request();
+        if (permiso.isGranted) {
+          final XFile? photo = await _picker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 85,
+          );
+
+          if (photo != null) {
+            setState(() {
+              _isCompressing = true;
+            });
+
+            try {
+              // Leer la imagen como bytes
+              final Uint8List imageBytes = await photo.readAsBytes();
+
+              // Procesar en segundo plano
+              final Uint8List? compressedBytes =
+                  await compute(_procesarImagenEnBackground, [imageBytes, 85]);
+
+              if (compressedBytes != null) {
+                // Guardar el resultado
+                final directory = await getApplicationDocumentsDirectory();
+                final timestamp = DateTime.now().millisecondsSinceEpoch;
+                final tempPath =
+                    '${directory.path}/compressed_image_$timestamp.jpg';
+
+                final compressedFile = File(tempPath);
+                await compressedFile.writeAsBytes(compressedBytes);
+
+                // Eliminar imagen anterior si existe
+                if (_image != null && await _image!.exists()) {
+                  try {
+                    await _image!.delete();
+                  } catch (e) {
+                    developer.log('Error al eliminar imagen anterior: $e');
+                  }
+                }
+
+                setState(() {
+                  _image = compressedFile;
+                  _isCompressing = false;
+                });
+
+                _mostrarDialogoConfirmacion();
+              } else {
+                throw Exception('Error al procesar la imagen');
+              }
+            } catch (e) {
+              developer.log('Error al comprimir la imagen: $e');
+              setState(() {
+                _image = File(photo.path);
+                _isCompressing = false;
+              });
+              _mostrarDialogoConfirmacion();
+            }
+          }
+        } else {
+          developer.log('Permiso de cámara denegado');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Se necesita permiso para usar la cámara')),
+          );
+        }
       }
     } catch (e) {
       setState(() {
@@ -319,14 +367,16 @@ class _SubirAccionPageState extends State<SubirAccionPage>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (_image != null)
+              if (_image != null || _webImageBytes != null)
                 Container(
                   height: 200,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     image: DecorationImage(
-                      image: FileImage(_image!),
+                      image: kIsWeb && _webImageBytes != null
+                          ? MemoryImage(_webImageBytes!) as ImageProvider
+                          : FileImage(_image!),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -345,6 +395,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
                 Navigator.of(context).pop();
                 setState(() {
                   _image = null;
+                  _webImageBytes = null;
                 });
               },
               child: const Text('Cancelar'),
@@ -363,7 +414,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   }
 
   Future<void> _subirAccion() async {
-    if (_image != null) {
+    if (_image != null || _webImageBytes != null) {
       final accionesProvider =
           Provider.of<AccionesProvider>(context, listen: false);
       final prefs = await SharedPreferences.getInstance();
@@ -382,13 +433,25 @@ class _SubirAccionPageState extends State<SubirAccionPage>
           _isUploading = true;
         });
 
-        await accionesProvider.subirAccion(
-          userId: userId,
-          tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
-          imagePath: _image!.path,
-          latitude: _currentPosition?.latitude,
-          longitude: _currentPosition?.longitude,
-        );
+        if (kIsWeb && _webImageBytes != null) {
+          // Para web, enviamos los bytes directamente
+          await accionesProvider.subirAccionWeb(
+            userId: userId,
+            tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
+            imageBytes: _webImageBytes!,
+            latitude: _currentPosition?.latitude,
+            longitude: _currentPosition?.longitude,
+          );
+        } else if (_image != null) {
+          // Para móvil, enviamos el path del archivo
+          await accionesProvider.subirAccion(
+            userId: userId,
+            tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
+            imagePath: _image!.path,
+            latitude: _currentPosition?.latitude,
+            longitude: _currentPosition?.longitude,
+          );
+        }
 
         notificationService.showSuccess(
           context,
@@ -397,6 +460,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
         setState(() {
           _image = null;
+          _webImageBytes = null;
           _isUploading = false;
         });
 

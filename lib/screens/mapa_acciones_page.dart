@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -188,144 +189,150 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
   }
 
   void _mostrarListaAcciones(List<UserAction> acciones) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) => DraggableScrollableSheet(
-      initialChildSize: 0.6, // Tamaño inicial (70% de la pantalla)
-      minChildSize: 0.3, // Mínimo (30% de la pantalla)
-      maxChildSize: 0.9, // Máximo (90% de la pantalla)
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Color(AppColors.darkGreen),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(27),
-              topRight: Radius.circular(27),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6, // Tamaño inicial (70% de la pantalla)
+        minChildSize: 0.3, // Mínimo (30% de la pantalla)
+        maxChildSize: 0.9, // Máximo (90% de la pantalla)
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Color(AppColors.darkGreen),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(27),
+                topRight: Radius.circular(27),
+              ),
             ),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                const SizedBox(height: 5),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Text(
-                      'Acciones por aquí',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'YesevaOne',
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const SizedBox(height: 5),
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        'Acciones por aquí',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'YesevaOne',
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController, // Conecta con `DraggableScrollableSheet`
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                    itemCount: acciones.length,
-                    itemBuilder: (context, index) {
-                      final accion = acciones[index];
-                      return GestureDetector(
-                        onTap: () => _mostrarImagenCompleta(acciones, index),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(16),
-                                  topRight: Radius.circular(16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller:
+                          scrollController, // Conecta con `DraggableScrollableSheet`
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      itemCount: acciones.length,
+                      itemBuilder: (context, index) {
+                        final accion = acciones[index];
+                        return GestureDetector(
+                          onTap: () => _mostrarImagenCompleta(acciones, index),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(16),
+                                    topRight: Radius.circular(16),
+                                  ),
+                                  child: CachedNetworkImage(
+                                    imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
+                                    imageUrl: accion.foto,
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    fadeInDuration:
+                                        const Duration(milliseconds: 200),
+                                    fadeOutDuration:
+                                        const Duration(milliseconds: 200),
+                                  ),
                                 ),
-                                child: CachedNetworkImage(
-                                  imageUrl: accion.foto,
-                                  height: 150,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  fadeInDuration:
-                                      const Duration(milliseconds: 200),
-                                  fadeOutDuration:
-                                      const Duration(milliseconds: 200),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Acción de ${accion.tipoAccion}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              fontFamily: 'YesevaOne',
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on,
-                                                color: Color(AppColors.primaryGreen),
-                                                size: 16,
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Acción de ${accion.tipoAccion}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                fontFamily: 'YesevaOne',
                                               ),
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  "${accion.lugar}, ${accion.ciudad}",
-                                                  style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.8),
-                                                    fontSize: 14,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on,
+                                                  color: Color(
+                                                      AppColors.primaryGreen),
+                                                  size: 16,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    "${accion.lugar}, ${accion.ciudad}",
+                                                    style: TextStyle(
+                                                      color: Colors.white
+                                                          .withOpacity(0.8),
+                                                      fontSize: 14,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 15),
-                                        ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 15),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    ActionUserPersonaje(
-                                      userId: accion.userId,
-                                      size: 60,
-                                    ),
-                                  ],
+                                      ActionUserPersonaje(
+                                        userId: accion.userId,
+                                        size: 60,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
+          );
+        },
+      ),
+    );
+  }
 
   Color _getMarkerColor(String tipoAccion) {
     switch (tipoAccion.toLowerCase()) {

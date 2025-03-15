@@ -6,6 +6,7 @@ import 'package:proyecto_verde_participativo/models/api_response.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
 import '../models/accion.dart';
 import '../models/medalla.dart';
+import 'dart:typed_data';
 
 class ApiService {
   late final Dio _dio;
@@ -263,6 +264,55 @@ class ApiService {
       {bool showMessages = false}) async {
     await get('/users/$userId/medallas/reset-pending',
         showMessages: showMessages);
+  }
+
+  Future<void> subirAccionWeb({
+    required String userId,
+    required String tipo,
+    required Uint8List imageBytes,
+    double? latitude,
+    double? longitude,
+    bool showMessages = false,
+  }) async {
+    String tipoAccion;
+    switch (tipo.toLowerCase()) {
+      case 'ayuda':
+        tipoAccion = 'ayuda';
+        break;
+      case 'descubrimiento':
+        tipoAccion = 'descubrimiento';
+        break;
+      case 'alerta':
+        tipoAccion = 'alerta';
+        break;
+      default:
+        throw Exception('Tipo de acción no válido');
+    }
+
+    try {
+      // Crear un FormData para enviar la imagen como bytes
+      FormData formData = FormData.fromMap({
+        'imagen': MultipartFile.fromBytes(
+          imageBytes,
+          filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: DioMediaType.parse('image/jpeg'),
+        ),
+        'tipo_accion': tipoAccion,
+        if (latitude != null) 'latitud': latitude,
+        if (longitude != null) 'longitud': longitude,
+      });
+
+      // Realizar la solicitud POST
+      final response = await _dio.post(
+        '/users/$userId/actions',
+        data: formData,
+      );
+
+      // Procesar la respuesta
+      _processResponse(response, null, showMessages);
+    } on DioException catch (e) {
+      throw _handleError(e, showMessages);
+    }
   }
 
   Exception _handleError(DioException e, bool showMessages) {

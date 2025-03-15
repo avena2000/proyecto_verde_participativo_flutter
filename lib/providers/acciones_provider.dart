@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_action.dart';
 import '../services/api_service.dart';
+import 'dart:typed_data';
 
 class AccionesProvider with ChangeNotifier {
   final ApiService _apiService;
@@ -80,6 +81,43 @@ class AccionesProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       rethrow; // Re-lanzar el error para manejarlo en la UI
+    }
+  }
+
+  Future<void> subirAccionWeb({
+    required String userId,
+    required String tipo,
+    required Uint8List imageBytes,
+    double? latitude,
+    double? longitude,
+    bool showMessages = false,
+  }) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      // Verificar si el ApiService tiene el método subirAccionWeb
+      // Si no, necesitarás implementarlo también
+      await _apiService.subirAccionWeb(
+        userId: userId,
+        tipo: tipo,
+        imageBytes: imageBytes,
+        latitude: latitude,
+        longitude: longitude,
+        showMessages: showMessages,
+      );
+
+      // Recargar la lista de acciones después de subir una nueva
+      await fetchAcciones(userId, showMessages: showMessages);
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      rethrow; // Re-lanzar el error para manejarlo en la UI
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

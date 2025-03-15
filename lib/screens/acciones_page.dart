@@ -1,3 +1,4 @@
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:proyecto_verde_participativo/utils/page_transitions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -207,6 +208,7 @@ class _MisAccionesState extends State<MisAcciones>
                     tag:
                         'image_${context.read<AccionesProvider>().acciones.indexOf(accion)}',
                     child: CachedNetworkImage(
+                      imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
                       fadeInDuration: const Duration(milliseconds: 200),
                       fadeOutDuration: const Duration(milliseconds: 200),
                       imageUrl: accion.foto,

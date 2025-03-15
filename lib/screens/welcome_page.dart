@@ -152,6 +152,7 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(AppColors.primaryGreenDark),
       extendBodyBehindAppBar: true,
       extendBody: true,
       body: Container(

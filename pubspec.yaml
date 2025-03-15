@@ -37,7 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   smooth_page_indicator: ^1.1.0
   image_picker: ^1.0.7
-  geolocator: ^11.0.0
+  geolocator: ^13.0.2
   permission_handler: ^11.3.0
   # Para llamadas HTTP
   dio: ^5.4.1
@@ -56,6 +56,9 @@ dependencies:
   flutter_native_splash: 2.4.4
   flutter_launcher_icons: ^0.14.3
   auto_animated: ^3.2.0
+  web: ^1.1.1
+  fullscreen_window: ^1.1.0
+  cached_network_image_platform_interface: ^4.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
