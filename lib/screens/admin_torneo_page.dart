@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:proyecto_verde_participativo/screens/home_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -76,16 +77,16 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
 
   Future<void> _borrarTorneo() async {
     try {
+      _apiService.setContext(context);
       await _apiService.post(
         '/torneos/admin/$_userId/borrar',
         parser: (data) => data,
+        showMessages: true,
       );
       notificationService.showSuccess(context, "Torneo eliminado exitosamente");
       HomePage.actualizarEstadisticas(context);
       Navigator.pop(context);
-    } catch (e) {
-      notificationService.showError(context, "Error al eliminar el torneo");
-    }
+    } catch (_) {}
   }
 
   Future<void> _actualizarFechaFin() async {
@@ -218,6 +219,10 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                     color: Colors.white,
                     fontFamily: 'YesevaOne',
                   ),
+                ),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
                 ),
                 flexibleSpace: Container(
                   decoration: BoxDecoration(
@@ -602,7 +607,8 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                     ),
                   ),
                 ],
-                if (_torneo!.modalidad == 'Versus') ...[
+                if (_torneo!.modalidad == 'Versus' &&
+                    _torneo!.ubicacionAproximada) ...[
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -653,13 +659,17 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                                     _torneo!.ubicacionALongitud,
                                   ),
                                   initialZoom: 15,
-                                  interactiveFlags: InteractiveFlag.none,
+                                  interactionOptions: InteractionOptions(
+                                    flags: InteractiveFlag.none,
+                                  ),
                                 ),
                                 children: [
                                   TileLayer(
                                     urlTemplate:
                                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.example.app',
+                                    userAgentPackageName: 'com.vive.app',
+                                    tileProvider:
+                                        CancellableNetworkTileProvider(),
                                   ),
                                   MarkerLayer(
                                     markers: [
@@ -749,13 +759,17 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                                       _torneo!.ubicacionBLongitud!,
                                     ),
                                     initialZoom: 15,
-                                    interactiveFlags: InteractiveFlag.none,
+                                    interactionOptions: InteractionOptions(
+                                      flags: InteractiveFlag.none,
+                                    ),
                                   ),
                                   children: [
                                     TileLayer(
                                       urlTemplate:
                                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: 'com.example.app',
+                                      userAgentPackageName: 'com.vive.app',
+                                      tileProvider:
+                                          CancellableNetworkTileProvider(),
                                     ),
                                     MarkerLayer(
                                       markers: [
@@ -795,7 +809,8 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                       ),
                     ),
                   ],
-                ] else ...[
+                ] else if (_torneo!.modalidad == 'Individual' &&
+                    _torneo!.ubicacionAproximada) ...[
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -846,13 +861,17 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                                     _torneo!.ubicacionALongitud,
                                   ),
                                   initialZoom: 15,
-                                  interactiveFlags: InteractiveFlag.none,
+                                  interactionOptions: InteractionOptions(
+                                    flags: InteractiveFlag.none,
+                                  ),
                                 ),
                                 children: [
                                   TileLayer(
                                     urlTemplate:
                                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.example.app',
+                                    userAgentPackageName: 'com.vive.app',
+                                    tileProvider:
+                                        CancellableNetworkTileProvider(),
                                   ),
                                   MarkerLayer(
                                     markers: [

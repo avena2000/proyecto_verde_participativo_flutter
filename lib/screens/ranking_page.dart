@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:auto_animated/auto_animated.dart';
+import 'package:proyecto_verde_participativo/models/torneo_resumen.dart';
 import 'package:proyecto_verde_participativo/models/user_ranking.dart';
 import 'package:proyecto_verde_participativo/screens/home_page_friend.dart';
 import 'package:proyecto_verde_participativo/widgets/action_user_personaje.dart';
@@ -19,8 +20,14 @@ class RankingPage extends StatefulWidget {
 class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   List<UserRanking> _ranking = [];
+  List<TorneoResumen> _torneos = [];
   String _currentUserId = '';
   bool _isLoading = true;
+  bool _loadingTorneos = true;
+
+  // "General" es el valor por defecto, representa el ranking global
+  String _selectedOption = "General";
+  String? _selectedTorneoId;
 
   @override
   void initState() {
@@ -28,6 +35,7 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _setFullScreenMode();
     _loadRanking();
+    _loadTorneos();
   }
 
   @override
@@ -56,13 +64,48 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
     ));
   }
 
+  Future<void> _loadTorneos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      if (userId.isEmpty) {
+        setState(() => _loadingTorneos = false);
+        return;
+      }
+
+      final response = await _apiService.get(
+        '/users/$userId/torneos',
+        parser: (data) {
+          if (data is List) {
+            return data.map((item) => TorneoResumen.fromJson(item)).toList();
+          }
+          return <TorneoResumen>[];
+        },
+      );
+
+      setState(() {
+        _torneos = response;
+        _loadingTorneos = false;
+      });
+    } catch (e) {
+      setState(() => _loadingTorneos = false);
+    }
+  }
+
   Future<void> _loadRanking() async {
+    setState(() => _isLoading = true);
+
     try {
       final prefs = await SharedPreferences.getInstance();
       _currentUserId = prefs.getString('userId') ?? '';
 
+      final endpoint = _selectedTorneoId != null
+          ? '/ranking/torneo/$_selectedTorneoId'
+          : '/ranking';
+
       final response = await _apiService.get(
-        '/ranking',
+        endpoint,
         parser: (data) {
           if (data is List) {
             return data.map((item) => UserRanking.fromJson(item)).toList();
@@ -77,6 +120,16 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
       });
     } catch (e) {
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _onOptionSelected(String option, String? torneoId) {
+    if (_selectedOption != option || _selectedTorneoId != torneoId) {
+      setState(() {
+        _selectedOption = option;
+        _selectedTorneoId = torneoId;
+      });
+      _loadRanking();
     }
   }
 
@@ -98,62 +151,168 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text(
-            'Ranking Global',
-            style: TextStyle(
+          title: Text(
+            _selectedOption == "General"
+                ? 'Ranking Global'
+                : 'Torneo: $_selectedOption',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontFamily: 'YesevaOne',
             ),
           ),
         ),
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white))
-            : LiveList.options(
-                options: LiveOptions(
-                  delay: Duration(milliseconds: 100),
-                  showItemInterval: Duration(milliseconds: 150),
-                  showItemDuration: Duration(milliseconds: 300),
-                  visibleFraction: 0.05,
-                  reAnimateOnVisibility: false,
+        body: Column(
+          children: [
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white))
+                  : _ranking.length < 3
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Text(
+                              "Todavía no han participado suficientes personas",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        )
+                      : LiveList.options(
+                          options: LiveOptions(
+                            delay: Duration(milliseconds: 100),
+                            showItemInterval: Duration(milliseconds: 150),
+                            showItemDuration: Duration(milliseconds: 300),
+                            visibleFraction: 0.05,
+                            reAnimateOnVisibility: false,
+                          ),
+                          padding: EdgeInsets.only(
+                            top: MediaQuery.of(context).padding.top +
+                                kToolbarHeight +
+                                16,
+                            bottom: 16,
+                          ),
+                          itemCount:
+                              _ranking.length + (_ranking.length >= 3 ? 1 : 0),
+                          itemBuilder: (context, index, animation) {
+                            if (index == 0 && _ranking.length >= 3) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: Offset(0, 0.2),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: _buildTop3(),
+                                ),
+                              );
+                            }
+                            final rankingIndex =
+                                _ranking.length >= 3 ? index - 1 : index;
+                            if (rankingIndex < 3) {
+                              return const SizedBox.shrink();
+                            }
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: Offset(0.1, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: _buildRankingItem(
+                                    rankingIndex, _ranking[rankingIndex]),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+            // Selector de opciones (General y Torneos)
+            _buildOptionSelector(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionSelector() {
+    return Container(
+      height: 70,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+        top: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Color(AppColors.darkGreen).withOpacity(0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: _loadingTorneos
+          ? Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
                 ),
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-                  bottom: MediaQuery.of(context).padding.bottom + 16,
-                ),
-                itemCount: _ranking.length + (_ranking.length >= 3 ? 1 : 0),
-                itemBuilder: (context, index, animation) {
-                  if (index == 0 && _ranking.length >= 3) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: Offset(0, 0.2),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: _buildTop3(),
-                      ),
-                    );
-                  }
-                  final rankingIndex = _ranking.length >= 3 ? index - 1 : index;
-                  if (rankingIndex < 3) return const SizedBox.shrink();
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: Offset(0.1, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: _buildRankingItem(
-                          rankingIndex, _ranking[rankingIndex]),
-                    ),
-                  );
-                },
               ),
+            )
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              children: [
+                // Opción General (siempre presente)
+                _buildOptionItem("General", null),
+                // Opciones de torneos
+                ..._torneos.map(
+                    (torneo) => _buildOptionItem(torneo.nombre, torneo.id)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildOptionItem(String label, String? torneoId) {
+    final isSelected = _selectedOption == label;
+
+    return GestureDetector(
+      onTap: () => _onOptionSelected(label, torneoId),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Color(AppColors.primaryGreen)
+              : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: isSelected
+                ? Color(AppColors.primaryGreenDark)
+                : Colors.white.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }
@@ -165,139 +324,137 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
     );
   }
 
-Widget _buildRankingItem(int index, UserRanking user) {
-  final isCurrentUser = user.userId == _currentUserId;
-  return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      decoration: BoxDecoration(
-        color: isCurrentUser
-            ? Colors.white.withOpacity(0.15)
-            : Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
+  Widget _buildRankingItem(int index, UserRanking user) {
+    final isCurrentUser = user.userId == _currentUserId;
+    return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        decoration: BoxDecoration(
           color: isCurrentUser
-              ? Colors.white.withOpacity(0.3)
+              ? Colors.white.withOpacity(0.15)
               : Colors.white.withOpacity(0.1),
-        ),
-      ),
-      child: Stack(clipBehavior: Clip.none, children: [
-        ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 30,
-                alignment: Alignment.center,
-                child: Text(
-                  '${index + 1}',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-                child: ClipOval(
-                  child: ActionUserPersonaje(
-                    size: 50,
-                    cabello: user.cabello,
-                    vestimenta: user.vestimenta,
-                    barba: user.barba,
-                    detalleFacial: user.detalleFacial,
-                    detalleAdicional: user.detalleAdicional,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          subtitle: Center(
-            child: Text(
-              "\"${user.slogan}\"",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: Colors.white.withOpacity(0.7),
-              ),
-            ),
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(
-                  '${user.puntos} ',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Icon(
-                  Icons.eco_rounded,
-                  color: Color(AppColors.primaryGreen),
-                  size: 12,
-                ),
-              ]),
-              Text(
-                '${user.acciones} acciones',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 12,
-                ),
-              ),
-            ],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isCurrentUser
+                ? Colors.white.withOpacity(0.3)
+                : Colors.white.withOpacity(0.1),
           ),
         ),
-        Positioned(
-          top: -30,
-          left: 16,
-          right: 16,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(AppColors.primaryGreen),
-                  Color(AppColors.primaryGreenDark),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+        child: Stack(clipBehavior: Clip.none, children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 30,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                  child: ClipOval(
+                    child: ActionUserPersonaje(
+                      size: 50,
+                      cabello: user.cabello,
+                      vestimenta: user.vestimenta,
+                      barba: user.barba,
+                      detalleFacial: user.detalleFacial,
+                      detalleAdicional: user.detalleAdicional,
+                    ),
+                  ),
                 ),
               ],
             ),
-            child: Text(
-              '${user.nombre} ${user.apellido}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'YesevaOne',
+            subtitle: Center(
+              child: Text(
+                "\"${user.slogan}\"",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(
+                    '${user.puntos} ',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Icon(
+                    Icons.eco_rounded,
+                    color: Color(AppColors.primaryGreen),
+                    size: 12,
+                  ),
+                ]),
+                Text(
+                  '${user.acciones} acciones',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: -30,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(AppColors.primaryGreen),
+                    Color(AppColors.primaryGreenDark),
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                '${user.nombre} ${user.apellido}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'YesevaOne',
+                ),
               ),
             ),
           ),
-        ),
-      ]));
-}
-
-
+        ]));
+  }
 }
 
 class _Top3Animation extends StatefulWidget {
@@ -536,4 +693,3 @@ class _Top3AnimationState extends State<_Top3Animation> {
     }
   }
 }
-

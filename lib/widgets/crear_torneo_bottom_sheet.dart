@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/colors.dart';
+import '../models/torneo.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../screens/seleccionar_ubicacion_page.dart';
@@ -201,631 +203,644 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
         _horaFin.minute,
       );
 
-      final Map<String, dynamic> data = {
-        'id_creator': userId,
-        'nombre': _nombreController.text,
-        'modalidad': _modalidad,
-        'fecha_inicio': fechaInicioCompleta.toUtc().toIso8601String(),
-        'fecha_fin': fechaFinCompleta.toUtc().toIso8601String(),
-        'ubicacion_aproximada': _ubicacionAproximada,
-      };
+      // Crear directamente un objeto Torneo
+      final Torneo nuevoTorneo = Torneo(
+          id: '', // Se generará en el backend
+          idCreator: userId,
+          nombre: _nombreController.text,
+          modalidad: _modalidad,
+          ubicacionALatitud: _ubicacionA?.latitude ?? 0.0,
+          ubicacionALongitud: _ubicacionA?.longitude ?? 0.0,
+          nombreUbicacionA: _nombreUbicacionAController.text,
+          ubicacionBLatitud:
+              _modalidad == 'Versus' ? _ubicacionB?.latitude : null,
+          ubicacionBLongitud:
+              _modalidad == 'Versus' ? _ubicacionB?.longitude : null,
+          nombreUbicacionB:
+              _modalidad == 'Versus' ? _nombreUbicacionBController.text : null,
+          fechaInicio: fechaInicioCompleta,
+          fechaFin: fechaFinCompleta,
+          ubicacionAproximada: _ubicacionAproximada,
+          metrosAprox: _ubicacionAproximada ? _metrosTolerancia : null,
+          finalizado: false,
+          codeId: '', // Se generará en el backend
+          ganadorVersus: null,
+          ganadorIndividual: null);
 
-      if (_ubicacionAproximada) {
-        data['metros_aproximados'] = _metrosTolerancia;
-      }
+      // Utilizar el método toJson del modelo Torneo
+      final Map<String, dynamic> torneoData = nuevoTorneo.toJson();
 
-      if (_ubicacionAproximada) {
-        if (_modalidad == 'Versus') {
-          if (_ubicacionA != null) {
-            data['ubicacion_a_latitud'] = _ubicacionA!.latitude;
-            data['ubicacion_a_longitud'] = _ubicacionA!.longitude;
-            data['nombre_ubicacion_a'] = _nombreUbicacionAController.text;
-          }
-          if (_ubicacionB != null) {
-            data['ubicacion_b_latitud'] = _ubicacionB!.latitude;
-            data['ubicacion_b_longitud'] = _ubicacionB!.longitude;
-            data['nombre_ubicacion_b'] = _nombreUbicacionBController.text;
-          }
-        } else if (_ubicacionA != null) {
-          data['ubicacion_a_latitud'] = _ubicacionA!.latitude;
-          data['ubicacion_a_longitud'] = _ubicacionA!.longitude;
-          data['nombre_ubicacion_a'] = _nombreUbicacionAController.text;
-        }
-      }
+      // Eliminar campos que no se deben enviar al backend al crear
+      torneoData.remove('id');
+      torneoData.remove('code_id');
+      torneoData.remove('finalizado');
+      torneoData.remove('ganador_versus');
+      torneoData.remove('ganador_individual');
 
-      await _apiService.post('/torneos', data: data);
+      _apiService.setContext(context);
+      await _apiService.post('/torneos',
+          data: torneoData,
+          parser: (data) => Torneo.fromJson(data),
+          showMessages: true);
 
       if (!mounted) return;
       notificationService.showSuccess(context, "Torneo creado exitosamente");
       Navigator.pop(context);
-    } catch (e) {
-      notificationService.showError(context, "Error al crear el torneo");
+    } catch (_) {
+      // El error ya se muestra en el servicio de API
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.70,
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          controller: widget.scrollController,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-            const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Crear Torneo',
-                style: TextStyle(
-                  fontFamily: 'YesevaOne',
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _nombreController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Nombre del torneo',
-                labelStyle: const TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(AppColors.primaryGreen)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor ingresa un nombre';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _modalidad,
-                  isExpanded: true,
-                  dropdownColor: Color(AppColors.darkGreen),
-                  style: const TextStyle(color: Colors.white),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'Individual',
-                      child: Text('Individual'),
+        height: MediaQuery.of(context).size.height * 0.70,
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                const SizedBox(height: 16),
+                const Center(
+                  child: Text(
+                    'Crear Torneo',
+                    style: TextStyle(
+                      fontFamily: 'YesevaOne',
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    DropdownMenuItem(
-                      value: 'Versus',
-                      child: Text('Versus'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                TextFormField(
+                  controller: _nombreController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Nombre del torneo',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: Colors.white.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: Color(AppColors.primaryGreen)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor ingresa un nombre';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _modalidad,
+                      isExpanded: true,
+                      dropdownColor: Color(AppColors.darkGreen),
+                      style: const TextStyle(color: Colors.white),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Individual',
+                          child: Text('Individual'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Versus',
+                          child: Text('Versus'),
+                        ),
+                      ],
+                      onChanged: (String? value) {
+                        if (value != null) {
+                          setState(() {
+                            _modalidad = value;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Inicio: ${_fechaInicio.day}/${_fechaInicio.month}/${_fechaInicio.year}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Hora: ${_horaInicio.format(context)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ],
-                  onChanged: (String? value) {
-                    if (value != null) {
-                      setState(() {
-                        _modalidad = value;
-                      });
-                    }
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => _seleccionarFecha(false),
+                        child: Text(
+                          'Fin: ${_fechaFin.day}/${_fechaFin.month}/${_fechaFin.year}',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => _seleccionarHora(false),
+                        child: Text(
+                          'Hora: ${_horaFin.format(context)}',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text(
+                    'Ubicación aproximada',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  value: _ubicacionAproximada,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _ubicacionAproximada = value;
+                    });
                   },
+                  activeColor: Color(AppColors.primaryGreen),
                 ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Inicio: ${_fechaInicio.day}/${_fechaInicio.month}/${_fechaInicio.year}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w500),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Hora: ${_horaInicio.format(context)}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => _seleccionarFecha(false),
-                    child: Text(
-                      'Fin: ${_fechaFin.day}/${_fechaFin.month}/${_fechaFin.year}',
-                      style: const TextStyle(color: Colors.white),
+                if (_ubicacionAproximada) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: _metrosTolerancia,
+                        isExpanded: true,
+                        dropdownColor: Color(AppColors.darkGreen),
+                        style: const TextStyle(color: Colors.white),
+                        items: _metrosOptions.map((int metros) {
+                          return DropdownMenuItem<int>(
+                            value: metros,
+                            child: Text('$metros metros'),
+                          );
+                        }).toList(),
+                        onChanged: (int? value) {
+                          if (value != null) {
+                            setState(() {
+                              _metrosTolerancia = value;
+                            });
+                          }
+                        },
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => _seleccionarHora(false),
-                    child: Text(
-                      'Hora: ${_horaFin.format(context)}',
+                  const SizedBox(height: 16),
+                  if (_modalidad == 'Versus') ...[
+                    TextFormField(
+                      controller: _nombreUbicacionAController,
                       style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la ubicación A',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Colors.white.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Color(AppColors.primaryGreen)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (_ubicacionAproximada &&
+                            _ubicacionA != null &&
+                            (value == null || value.isEmpty)) {
+                          return 'Por favor ingresa el nombre de la ubicación A';
+                        }
+                        return null;
+                      },
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text(
-                'Ubicación aproximada',
-                style: TextStyle(color: Colors.white),
-              ),
-              value: _ubicacionAproximada,
-              onChanged: (bool value) {
-                setState(() {
-                  _ubicacionAproximada = value;
-                });
-              },
-              activeColor: Color(AppColors.primaryGreen),
-            ),
-            if (_ubicacionAproximada) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _metrosTolerancia,
-                    isExpanded: true,
-                    dropdownColor: Color(AppColors.darkGreen),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => _seleccionarUbicacion(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppColors.darkGreen),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Color(AppColors.primaryGreen),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _nombreUbicacionAController.text == ''
+                                    ? 'Seleccionar ubicación A'
+                                    : _nombreUbicacionAController.text,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_ubicacionA != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 250,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _ubicacionA!,
+                              initialZoom: 15,
+                              interactionOptions: InteractionOptions(
+                                  flags: InteractiveFlag.none),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.vive.app',
+                                tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _ubicacionA!,
+                                    width: 40,
+                                    height: 40,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Color(AppColors.primaryGreen)
+                                            .withOpacity(0.3),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                      ),
+                                      child: Icon(
+                                        Icons.location_on,
+                                        color: Color(AppColors.primaryGreen),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _nombreUbicacionBController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la ubicación B',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Colors.white.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Color(AppColors.primaryGreen)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (_ubicacionAproximada &&
+                            _ubicacionB != null &&
+                            (value == null || value.isEmpty)) {
+                          return 'Por favor ingresa el nombre de la ubicación B';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => _seleccionarUbicacion(false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppColors.darkGreen),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Color(AppColors.primaryGreen),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _nombreUbicacionBController.text == ''
+                                    ? 'Seleccionar ubicación B'
+                                    : _nombreUbicacionBController.text,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_ubicacionB != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 250,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _ubicacionB!,
+                              initialZoom: 15,
+                              interactionOptions: InteractionOptions(
+                                  flags: InteractiveFlag.none),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.vive.app',
+                                tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _ubicacionB!,
+                                    width: 40,
+                                    height: 40,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Color(AppColors.primaryGreen)
+                                            .withOpacity(0.3),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                      ),
+                                      child: Icon(
+                                        Icons.location_on,
+                                        color: Color(AppColors.primaryGreen),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    TextFormField(
+                      controller: _nombreUbicacionAController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Nombre de la ubicación',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Colors.white.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: Color(AppColors.primaryGreen)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (_ubicacionAproximada &&
+                            _ubicacionA != null &&
+                            (value == null || value.isEmpty)) {
+                          return 'Por favor ingresa el nombre de la ubicación';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => _seleccionarUbicacion(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(AppColors.darkGreen),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Color(AppColors.primaryGreen),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _nombreUbicacionAController.text == ''
+                                    ? 'Seleccionar ubicación'
+                                    : _nombreUbicacionAController.text,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_ubicacionA != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 250,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _ubicacionA!,
+                              initialZoom: 15,
+                              interactionOptions: InteractionOptions(
+                                  flags: InteractiveFlag.none),
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.vive.app',
+                                tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _ubicacionA!,
+                                    width: 40,
+                                    height: 40,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Color(AppColors.primaryGreen)
+                                            .withOpacity(0.3),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 2),
+                                      ),
+                                      child: Icon(
+                                        Icons.location_on,
+                                        color: Color(AppColors.primaryGreen),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+                if (_modalidad == 'Versus' && !_ubicacionAproximada) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _nombreUbicacionAController,
                     style: const TextStyle(color: Colors.white),
-                    items: _metrosOptions.map((int metros) {
-                      return DropdownMenuItem<int>(
-                        value: metros,
-                        child: Text('$metros metros'),
-                      );
-                    }).toList(),
-                    onChanged: (int? value) {
-                      if (value != null) {
-                        setState(() {
-                          _metrosTolerancia = value;
-                        });
+                    decoration: InputDecoration(
+                      labelText: 'Nombre de la ubicación A',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: Color(AppColors.primaryGreen)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (_modalidad == 'Versus' &&
+                          (value == null || value.isEmpty)) {
+                        return 'Por favor ingresa el nombre de la ubicación A';
                       }
+                      return null;
                     },
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_modalidad == 'Versus') ...[
-                TextFormField(
-                  controller: _nombreUbicacionAController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Nombre de la ubicación A',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Colors.white.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Color(AppColors.primaryGreen)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (_ubicacionAproximada &&
-                        _ubicacionA != null &&
-                        (value == null || value.isEmpty)) {
-                      return 'Por favor ingresa el nombre de la ubicación A';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => _seleccionarUbicacion(true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(AppColors.darkGreen),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: Color(AppColors.primaryGreen),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _nombreUbicacionAController.text == ''
-                                ? 'Seleccionar ubicación A'
-                                : _nombreUbicacionAController.text,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_ubicacionA != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 250,
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _nombreUbicacionBController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Nombre de la ubicación B',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: Colors.white.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: Color(AppColors.primaryGreen)),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: _ubicacionA!,
-                          initialZoom: 15,
-                          interactiveFlags: InteractiveFlag.none,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.app',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: _ubicacionA!,
-                                width: 40,
-                                height: 40,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Color(AppColors.primaryGreen)
-                                        .withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.white, width: 2),
-                                  ),
-                                  child: Icon(
-                                    Icons.location_on,
-                                    color: Color(AppColors.primaryGreen),
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    validator: (value) {
+                      if (_modalidad == 'Versus' &&
+                          (value == null || value.isEmpty)) {
+                        return 'Por favor ingresa el nombre de la ubicación B';
+                      }
+                      return null;
+                    },
                   ),
                 ],
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _nombreUbicacionBController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Nombre de la ubicación B',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Colors.white.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Color(AppColors.primaryGreen)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (_ubicacionAproximada &&
-                        _ubicacionB != null &&
-                        (value == null || value.isEmpty)) {
-                      return 'Por favor ingresa el nombre de la ubicación B';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => _seleccionarUbicacion(false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(AppColors.darkGreen),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: Color(AppColors.primaryGreen),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _nombreUbicacionBController.text == ''
-                                ? 'Seleccionar ubicación B'
-                                : _nombreUbicacionBController.text,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_ubicacionB != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 250,
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _crearTorneo,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(AppColors.primaryGreen),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: _ubicacionB!,
-                          initialZoom: 15,
-                          interactiveFlags: InteractiveFlag.none,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.app',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: _ubicacionB!,
-                                width: 40,
-                                height: 40,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Color(AppColors.primaryGreen)
-                                        .withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.white, width: 2),
-                                  ),
-                                  child: Icon(
-                                    Icons.location_on,
-                                    color: Color(AppColors.primaryGreen),
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                    child: const Text(
+                      'Crear Torneo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ],
-              ] else ...[
-                TextFormField(
-                  controller: _nombreUbicacionAController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Nombre de la ubicación',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Colors.white.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide:
-                          BorderSide(color: Color(AppColors.primaryGreen)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (_ubicacionAproximada &&
-                        _ubicacionA != null &&
-                        (value == null || value.isEmpty)) {
-                      return 'Por favor ingresa el nombre de la ubicación';
-                    }
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => _seleccionarUbicacion(true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(AppColors.darkGreen),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: Color(AppColors.primaryGreen),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _nombreUbicacionAController.text == ''
-                                ? 'Seleccionar ubicación'
-                                : _nombreUbicacionAController.text,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_ubicacionA != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 250,
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: _ubicacionA!,
-                          initialZoom: 15,
-                          interactiveFlags: InteractiveFlag.none,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.app',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: _ubicacionA!,
-                                width: 40,
-                                height: 40,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Color(AppColors.primaryGreen)
-                                        .withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.white, width: 2),
-                                  ),
-                                  child: Icon(
-                                    Icons.location_on,
-                                    color: Color(AppColors.primaryGreen),
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                const SizedBox(height: 32),
               ],
-            ],
-            if (_modalidad == 'Versus' && !_ubicacionAproximada) ...[
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nombreUbicacionAController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la ubicación A',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide:
-                        BorderSide(color: Colors.white.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide:
-                        BorderSide(color: Color(AppColors.primaryGreen)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (value) {
-                  if (_modalidad == 'Versus' &&
-                      (value == null || value.isEmpty)) {
-                    return 'Por favor ingresa el nombre de la ubicación A';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nombreUbicacionBController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Nombre de la ubicación B',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide:
-                        BorderSide(color: Colors.white.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide:
-                        BorderSide(color: Color(AppColors.primaryGreen)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (value) {
-                  if (_modalidad == 'Versus' &&
-                      (value == null || value.isEmpty)) {
-                    return 'Por favor ingresa el nombre de la ubicación B';
-                  }
-                  return null;
-                },
-              ),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _crearTorneo,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(AppColors.primaryGreen),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Crear Torneo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    )
-    );
+          ),
+        ));
   }
 }

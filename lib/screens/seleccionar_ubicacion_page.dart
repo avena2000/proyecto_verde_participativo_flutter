@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import '../constants/colors.dart';
@@ -184,7 +185,11 @@ class _SeleccionarUbicacionPageState extends State<SeleccionarUbicacionPage>
                   _currentLocation ??
                   const LatLng(19.4326, -99.1332),
               initialZoom: 15,
-              interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              interactionOptions: InteractionOptions(
+                flags: InteractiveFlag.drag |
+                    InteractiveFlag.pinchZoom |
+                    InteractiveFlag.doubleTapZoom,
+              ),
               onTap: (tapPosition, point) {
                 setState(() {
                   _selectedLocation = point;
@@ -196,7 +201,8 @@ class _SeleccionarUbicacionPageState extends State<SeleccionarUbicacionPage>
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+                userAgentPackageName: 'com.vive.app',
+                tileProvider: CancellableNetworkTileProvider(),
               ),
               MarkerLayer(
                 markers: [

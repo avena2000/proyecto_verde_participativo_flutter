@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
+import 'package:proyecto_verde_participativo/main.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -13,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/acciones_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 class SubirAccionPage extends StatefulWidget {
   const SubirAccionPage({super.key});
@@ -37,7 +39,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
     vsync: this,
     duration: const Duration(milliseconds: 800),
   );
-
+  bool ios = isIOS();
   // Animación de rebote usando un ciclo más natural
   late final Animation<double> _bounceAnimation = TweenSequence<double>([
     TweenSequenceItem(
@@ -60,10 +62,25 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   File? _image;
   Uint8List? _webImageBytes; // Añadir para almacenar bytes de imagen en web
 
+  // Variables para torneo
+  bool _isTournamentValid = false;
+  bool _hasTournamentLocation = false;
+  double? _tournamentLatitude;
+  double? _tournamentLongitude;
+  double? _tournamentRadius;
+
   Position? _currentPosition;
   bool _isCompressing = false;
   bool _isUploading = false;
   bool _imagesPrecached = false;
+
+  // Añadir variable para rastrear el estado de la ubicación
+  bool _ubicacionEnProgreso = false;
+
+  // Controlador de stream para notificar cambios en la ubicación
+  final StreamController<bool> _ubicacionStreamController =
+      StreamController<bool>.broadcast();
+  StreamSubscription? _ubicacionSubscription;
 
   final List<String> imagenes = [
     'assets/acciones/accion_descubrimiento.png',
@@ -164,10 +181,18 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
     // Iniciar la animación de rebote con un pequeño delay inicial
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
+      if (mounted && !ios) {
         _startBounceAnimation();
       }
     });
+
+    // Inicializar el stream de ubicación
+    _ubicacionStreamController.stream.listen((_) {
+      // Este stream se usará para notificar a los escuchadores cuando cambie el estado de ubicación
+    });
+
+    // Cargar datos del torneo
+    _cargarDatosTorneo();
   }
 
   @override
@@ -183,17 +208,112 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   Future<void> _obtenerUbicacion() async {
     try {
-      Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
-          .then((position) {
-        setState(() {
-          _currentPosition = position;
-        });
-        developer.log(
-            'Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
+      // Establecer el estado de carga para la ubicación
+      setState(() {
+        _ubicacionEnProgreso = true;
+      });
+
+      // Notificar que cambió el estado de ubicación
+      _ubicacionStreamController.add(true);
+
+      // Verificar el permiso de ubicación
+      LocationPermission permiso = await Geolocator.checkPermission();
+      if (permiso == LocationPermission.denied) {
+        permiso = await Geolocator.requestPermission();
+        if (permiso == LocationPermission.denied) {
+          // Permiso denegado
+          if (mounted) {
+            setState(() {
+              _ubicacionEnProgreso = false;
+            });
+            _ubicacionStreamController.add(false);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Se requiere acceso a la ubicación para subir acciones. Por favor, activa la ubicación.',
+                ),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permiso == LocationPermission.deniedForever) {
+        // El usuario ha denegado permanentemente el permiso
+        if (mounted) {
+          setState(() {
+            _ubicacionEnProgreso = false;
+          });
+          _ubicacionStreamController.add(false);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Se ha denegado permanentemente el permiso de ubicación. Por favor, actívalo en la configuración de tu dispositivo.',
+              ),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Usar un timeout para no bloquear demasiado tiempo en caso de problemas
+      Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      ).then((position) {
+        if (mounted) {
+          setState(() {
+            _currentPosition = position;
+            _ubicacionEnProgreso = false;
+          });
+          // Validar proximidad al torneo si hay ubicación de torneo
+          if (_hasTournamentLocation) {
+            _validarProximidadTorneo();
+          }
+          // Notificar que la ubicación ha cambiado
+          _ubicacionStreamController.add(false);
+          debugPrint(
+              'Ubicación actual: Lat: ${position.latitude}, Long: ${position.longitude}');
+        }
       }).catchError((e) {
+        if (mounted) {
+          setState(() {
+            _ubicacionEnProgreso = false;
+          });
+          // Notificar que hubo un error
+          _ubicacionStreamController.add(false);
+
+          // Mostrar mensaje de error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al obtener ubicación: ${e.toString()}'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
         developer.log('Error al obtener ubicación: $e');
       });
     } catch (e) {
+      if (mounted) {
+        setState(() {
+          _ubicacionEnProgreso = false;
+        });
+        // Notificar que hubo un error
+        _ubicacionStreamController.add(false);
+
+        // Mostrar mensaje de error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
       developer.log('Error al solicitar permiso de ubicación: $e');
     }
   }
@@ -231,26 +351,12 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   }
 
   Future<void> _abrirCamara() async {
-    try {
-      final permiso = await Permission.location.request();
-      if (!permiso.isGranted) {
-        developer.log('Permiso de ubicación denegado');
-        notificationService.showError(
-          context,
-          'Se necesita permiso para usar la ubicación, asegúrate de tenerla activada en la configuración de tu dispositivo',
-        );
-        return;
-      }
-    } catch (e) {
-      developer.log('Error al solicitar permiso de ubicación: $e');
-      return;
-    }
+    // Iniciar obteniendo ubicación en segundo plano
+    _obtenerUbicacion();
 
     try {
-      _obtenerUbicacion();
-      // Verificar si estamos en web o en móvil
+      // Abrir la cámara inmediatamente, sin esperar por la ubicación
       if (kIsWeb) {
-        // En web, no necesitamos solicitar permisos de la misma manera
         final XFile? photo = await _picker.pickImage(
           source: ImageSource.camera,
           imageQuality: 85,
@@ -268,7 +374,6 @@ class _SubirAccionPageState extends State<SubirAccionPage>
             final Uint8List imageBytes = await photo.readAsBytes();
 
             // En web, no podemos usar compute, así que procesamos directamente
-            // Podríamos reducir la calidad para web si es necesario
             _webImageBytes = imageBytes;
             _isCompressing = false;
             _mostrarDialogoConfirmacion();
@@ -284,7 +389,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
           }
         }
       } else {
-        // En móvil, solicitamos permisos normalmente
+        // En móvil, solicitamos permisos para la cámara
         final permiso = await Permission.camera.request();
         if (permiso.isGranted) {
           final XFile? photo = await _picker.pickImage(
@@ -341,13 +446,13 @@ class _SubirAccionPageState extends State<SubirAccionPage>
               });
               _mostrarDialogoConfirmacion();
             }
+          } else {
+            developer.log('Permiso de cámara denegado');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Se necesita permiso para usar la cámara')),
+            );
           }
-        } else {
-          developer.log('Permiso de cámara denegado');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Se necesita permiso para usar la cámara')),
-          );
         }
       }
     } catch (e) {
@@ -362,59 +467,163 @@ class _SubirAccionPageState extends State<SubirAccionPage>
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmar Acción'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_image != null || _webImageBytes != null)
-                Container(
-                  height: 200,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(
-                      image: kIsWeb && _webImageBytes != null
-                          ? MemoryImage(_webImageBytes!) as ImageProvider
-                          : FileImage(_image!),
-                      fit: BoxFit.cover,
+        // Usar StatefulBuilder para poder actualizar el diálogo cuando cambia el estado
+        return StatefulBuilder(builder: (context, setDialogState) {
+          // Suscribirse al stream de ubicación para actualizar el diálogo
+          _ubicacionSubscription?.cancel();
+          _ubicacionSubscription =
+              _ubicacionStreamController.stream.listen((_) {
+            // Actualizar el estado del diálogo cuando cambie la ubicación
+            setDialogState(() {});
+          });
+
+          return AlertDialog(
+            title: const Text('Confirmar Acción'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_image != null || _webImageBytes != null)
+                  Container(
+                    height: 200,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      image: DecorationImage(
+                        image: kIsWeb && _webImageBytes != null
+                            ? MemoryImage(_webImageBytes!) as ImageProvider
+                            : FileImage(_image!),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
+                const SizedBox(height: 16),
+                Text('¿Deseas subir esta foto como Acción de ${[
+                  'Descubrimiento',
+                  'Alerta',
+                  'Ayuda'
+                ][_currentPage]}?'),
+                if (_hasTournamentLocation)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.emoji_events,
+                          color:
+                              _isTournamentValid ? Colors.green : Colors.grey,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _isTournamentValid
+                                ? 'Esta acción será válida para el torneo actual.'
+                                : 'Esta acción no es válida para el torneo. Debes acercarte al área designada.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _isTournamentValid
+                                  ? Colors.green[700]
+                                  : Colors.grey[600],
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_ubicacionEnProgreso || _currentPosition == null)
+                  Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _ubicacionEnProgreso
+                                ? 'Obteniendo ubicación...'
+                                : 'Se requiere ubicación para continuar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _ubicacionEnProgreso
+                                  ? Colors.grey[600]
+                                  : Colors.red[700],
+                              fontWeight: _ubicacionEnProgreso
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  _ubicacionSubscription?.cancel();
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _image = null;
+                    _webImageBytes = null;
+                  });
+                },
+                child: const Text('Cancelar'),
+              ),
+              if (_ubicacionEnProgreso)
+                // Mientras se obtiene la ubicación, mostrar botón deshabilitado
+                TextButton(
+                  onPressed: null, // Deshabilitado
+                  child: const Text('Esperando ubicación...'),
+                )
+              else if (_currentPosition == null)
+                // Si no hay ubicación y ya no se está obteniendo, informar al usuario
+                TextButton(
+                  onPressed: () {
+                    // Intentar obtener la ubicación nuevamente
+                    _obtenerUbicacion();
+                  },
+                  child: const Text('Obtener ubicación'),
+                )
+              else
+                // Solo mostrar confirmar si hay ubicación
+                TextButton(
+                  onPressed: () {
+                    _ubicacionSubscription?.cancel();
+                    _subirAccion();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Confirmar'),
                 ),
-              const SizedBox(height: 16),
-              Text('¿Deseas subir esta foto como Acción de ${[
-                'Descubrimiento',
-                'Alerta',
-                'Ayuda'
-              ][_currentPage]}?'),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _image = null;
-                  _webImageBytes = null;
-                });
-              },
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () {
-                _subirAccion();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Confirmar'),
-            ),
-          ],
-        );
+          );
+        });
       },
     );
   }
 
   Future<void> _subirAccion() async {
     if (_image != null || _webImageBytes != null) {
+      // Verificar que se tenga la ubicación
+      if (_currentPosition == null) {
+        notificationService.showError(
+          context,
+          'Error: No se ha podido obtener la ubicación. Intenta de nuevo.',
+        );
+        // Intentar obtener la ubicación nuevamente
+        _obtenerUbicacion();
+        return;
+      }
+
       final accionesProvider =
           Provider.of<AccionesProvider>(context, listen: false);
       final prefs = await SharedPreferences.getInstance();
@@ -439,8 +648,9 @@ class _SubirAccionPageState extends State<SubirAccionPage>
             userId: userId,
             tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
             imageBytes: _webImageBytes!,
-            latitude: _currentPosition?.latitude,
-            longitude: _currentPosition?.longitude,
+            latitude: _currentPosition!.latitude,
+            longitude: _currentPosition!.longitude,
+            isTournamentValid: _isTournamentValid,
           );
         } else if (_image != null) {
           // Para móvil, enviamos el path del archivo
@@ -448,8 +658,9 @@ class _SubirAccionPageState extends State<SubirAccionPage>
             userId: userId,
             tipo: ['descubrimiento', 'alerta', 'ayuda'][_currentPage],
             imagePath: _image!.path,
-            latitude: _currentPosition?.latitude,
-            longitude: _currentPosition?.longitude,
+            latitude: _currentPosition!.latitude,
+            longitude: _currentPosition!.longitude,
+            isTournamentValid: _isTournamentValid,
           );
         }
 
@@ -493,6 +704,11 @@ class _SubirAccionPageState extends State<SubirAccionPage>
                 onVerticalDragStart: _handleVerticalDragStart,
                 onVerticalDragUpdate: _handleVerticalDragUpdate,
                 onVerticalDragEnd: _handleVerticalDragEnd,
+                onTap: () {
+                  if (ios) {
+                    _abrirCamara();
+                  }
+                },
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) {
@@ -745,9 +961,71 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   @override
   void dispose() {
+    _ubicacionSubscription?.cancel();
+    _ubicacionStreamController.close();
     _bounceAnimationController.dispose();
     _dragAnimationController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  // Método para cargar datos del torneo desde SharedPreferences
+  Future<void> _cargarDatosTorneo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final tournamentLat = prefs.getDouble('torneo_latitud') ?? 0.0;
+      final tournamentLong = prefs.getDouble('torneo_longitud') ?? 0.0;
+      final radius = prefs.getInt('torneo_metros') ?? 100;
+
+      setState(() {
+        _tournamentLatitude = tournamentLat;
+        _tournamentLongitude = tournamentLong;
+        _tournamentRadius = radius.toDouble();
+        _hasTournamentLocation = tournamentLat != 0.0 && tournamentLong != 0.0;
+      });
+
+      // Si hay una ubicación de torneo y ya tenemos la ubicación actual, validar
+      if (_hasTournamentLocation && _currentPosition != null) {
+        _validarProximidadTorneo();
+      }
+    } catch (e) {
+      developer.log('Error al cargar datos de torneo: $e');
+    }
+  }
+
+  // Método para validar la proximidad al torneo
+  void _validarProximidadTorneo() {
+    if (!_hasTournamentLocation ||
+        _currentPosition == null ||
+        _tournamentRadius == null) {
+      setState(() {
+        _isTournamentValid = false;
+      });
+      return;
+    }
+
+    try {
+      // Calcular distancia entre la ubicación actual y la ubicación del torneo
+      final distancia = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        _tournamentLatitude!,
+        _tournamentLongitude!,
+      );
+
+      // Verificar si la distancia está dentro del radio permitido
+      setState(() {
+        _isTournamentValid = distancia <= _tournamentRadius!;
+      });
+
+      developer.log(
+          'Distancia al torneo: $distancia metros. Radio permitido: $_tournamentRadius. Válido: $_isTournamentValid');
+    } catch (e) {
+      developer.log('Error al validar proximidad al torneo: $e');
+      setState(() {
+        _isTournamentValid = false;
+      });
+    }
   }
 }

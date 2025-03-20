@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:proyecto_verde_participativo/models/user_basic_info.dart';
 import 'package:proyecto_verde_participativo/models/user_profile.dart';
 import 'package:proyecto_verde_participativo/models/user_stats.dart';
-import 'package:proyecto_verde_participativo/screens/amigos_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../constants/colors.dart';
@@ -27,7 +26,7 @@ class _HomePageState extends State<HomePageFriend>
   final ApiService _apiService = ApiService();
   late String amigoId;
 
-  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
 
   String _nombre = '';
   String _apellido = '';
@@ -219,7 +218,7 @@ class _HomePageState extends State<HomePageFriend>
                     ),
                     child: Column(
                       children: [
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 0),
                         if (_isLoading)
                           const CircularProgressIndicator(color: Colors.white)
                         else ...[
@@ -517,6 +516,7 @@ class MenuPrincipal extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
         ],
       ),
     );

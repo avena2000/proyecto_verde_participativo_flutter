@@ -30,9 +30,9 @@
   <title>proyecto_verde_participativo</title>
   <link rel="manifest" href="manifest.json">
   
-  
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1b4031"/>
+    
   
   
   
@@ -70,8 +70,12 @@
     body {
       margin: 0;
       min-height: 100%;
-      background-color: #42a5f5;
-          background-size: 100% 100%;
+      background-color: #1b4031;
+      background-size: 100% 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
     }
 
     .center {
@@ -81,6 +85,7 @@
       left: 50%;
       -ms-transform: translate(-50%, -50%);
       transform: translate(-50%, -50%);
+      text-align: center;
     }
 
     .contain {
@@ -119,17 +124,56 @@
       bottom: 0;
       right: 0;
     }
+    /* Estilos para la rueda de carga */
+    .loader {
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      border-top: 4px solid #34A853;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
-      document.getElementById("splash")?.remove();
-      document.getElementById("splash-branding")?.remove();
-      document.body.style.background = "transparent";
+      const splash = document.getElementById("splash");
+      if (splash) {
+        // Añadir una clase para desvanecer el splash antes de eliminarlo
+        splash.classList.add("fade-out");
+
+        // Eliminar después de la animación
+        setTimeout(() => {
+          splash.remove();
+        }, 300);
+      }
     }
+
+    // Asegurarse de que el splash se elimine después de un tiempo máximo
+    // en caso de que la aplicación Flutter no lo haga
+    setTimeout(removeSplashFromWeb, 8000);
   </script>
+
+  <style>
+    /* Añadir animación de desvanecimiento para el splash */
+    .fade-out {
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+    }
+  </style>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async=""></script>
+  <!-- Splash Screen con rueda de carga -->
+  <div id="splash" class="center">
+    <div class="loader"></div>
+  </div>
+
   <!-- Capture PWA install prompt event -->
 <script>
   let deferredPrompt;
@@ -150,7 +194,7 @@
 
   // Track how PWA was launched (either from browser or as PWA)
   function getLaunchMode() {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: standalone)').matches;
     if(deferredPrompt) hasPrompt();
     if (document.referrer.startsWith('android-app://')) {
       appLaunchedAsTWA();

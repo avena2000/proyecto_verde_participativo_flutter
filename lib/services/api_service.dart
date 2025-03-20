@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:proyecto_verde_participativo/constants/api_codes.dart';
@@ -6,7 +7,6 @@ import 'package:proyecto_verde_participativo/models/api_response.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
 import '../models/accion.dart';
 import '../models/medalla.dart';
-import 'dart:typed_data';
 
 class ApiService {
   late final Dio _dio;
@@ -20,7 +20,9 @@ class ApiService {
 
   ApiService._internal() {
     _dio = Dio(BaseOptions(
-      baseUrl: dotenv.env['API_URL'] ?? 'http://localhost:3000/api',
+      baseUrl: kDebugMode
+          ? 'http://localhost:9001/api'
+          : (dotenv.env['API_URL'] ?? 'http://localhost:9001/api'),
       connectTimeout: const Duration(seconds: 5),
       receiveTimeout: const Duration(seconds: 3),
       headers: {
@@ -200,6 +202,7 @@ class ApiService {
     required String imagePath,
     double? latitude,
     double? longitude,
+    bool isTournamentValid = false,
     bool showMessages = false,
   }) async {
     String tipoAccion;
@@ -225,6 +228,7 @@ class ApiService {
         'tipo_accion': tipoAccion,
         'latitud': latitude,
         'longitud': longitude,
+        'is_tournament_valid': isTournamentValid,
       },
       showMessages: showMessages,
     );
@@ -272,6 +276,7 @@ class ApiService {
     required Uint8List imageBytes,
     double? latitude,
     double? longitude,
+    bool isTournamentValid = false,
     bool showMessages = false,
   }) async {
     String tipoAccion;
@@ -300,6 +305,7 @@ class ApiService {
         'tipo_accion': tipoAccion,
         if (latitude != null) 'latitud': latitude,
         if (longitude != null) 'longitud': longitude,
+        'is_tournament_valid': isTournamentValid,
       });
 
       // Realizar la solicitud POST
@@ -312,6 +318,20 @@ class ApiService {
       _processResponse(response, null, showMessages);
     } on DioException catch (e) {
       throw _handleError(e, showMessages);
+    }
+  }
+
+  // Método para verificar la salud del servidor
+  Future<bool> checkHealth() async {
+    try {
+      final response = await _dio.get('/health',
+          options: Options(
+            receiveTimeout: const Duration(seconds: 5),
+            sendTimeout: const Duration(seconds: 5),
+          ));
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
     }
   }
 

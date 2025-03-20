@@ -3,6 +3,7 @@ import 'package:cached_network_image_platform_interface/cached_network_image_pla
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proyecto_verde_participativo/models/user_action.dart';
@@ -164,11 +165,10 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al cargar las acciones'),
-          backgroundColor: Colors.red,
-        ),
+      notificationService.showNotification(
+        context,
+        message: 'Error al cargar las acciones',
+        type: NotificationType.error,
       );
     }
   }
@@ -252,7 +252,8 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
                                     topRight: Radius.circular(16),
                                   ),
                                   child: CachedNetworkImage(
-                                    imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
+                                    imageRenderMethodForWeb:
+                                        ImageRenderMethodForWeb.HttpGet,
                                     imageUrl: accion.foto,
                                     height: 150,
                                     width: double.infinity,
@@ -447,14 +448,18 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
                         initialCenter: _currentLocation ??
                             const LatLng(19.4326, -99.1332), // Ciudad de México
                         initialZoom: 16,
-                        interactiveFlags:
-                            InteractiveFlag.all & ~InteractiveFlag.rotate,
+                        interactionOptions: InteractionOptions(
+                          flags: InteractiveFlag.drag |
+                              InteractiveFlag.pinchZoom |
+                              InteractiveFlag.doubleTapZoom,
+                        ),
                       ),
                       children: [
                         TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.app',
+                          userAgentPackageName: 'com.vive.app',
+                          tileProvider: CancellableNetworkTileProvider(),
                         ),
                         MarkerLayer(
                           markers: [
@@ -491,6 +496,7 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               FloatingActionButton(
+                                heroTag: 'mapa_acciones_center_location',
                                 backgroundColor: Color(AppColors.darkGreen),
                                 onPressed: () {
                                   _animatedMapController.centerOnPoint(
@@ -505,6 +511,7 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
                               Row(
                                 children: [
                                   FloatingActionButton(
+                                    heroTag: 'mapa_acciones_prev_marker',
                                     backgroundColor: Color(AppColors.darkGreen),
                                     onPressed: () {
                                       _navigateToPreviousMarker();
@@ -514,6 +521,7 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
                                   ),
                                   const SizedBox(width: 16),
                                   FloatingActionButton(
+                                    heroTag: 'mapa_acciones_next_marker',
                                     backgroundColor: Color(AppColors.darkGreen),
                                     onPressed: () {
                                       _navigateToNextMarker();

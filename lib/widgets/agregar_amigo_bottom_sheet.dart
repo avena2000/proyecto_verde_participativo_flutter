@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:proyecto_verde_participativo/services/api_service.dart';
@@ -29,7 +28,6 @@ class AgregarAmigoBottomSheet extends StatefulWidget {
 class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
   final List<DireccionGesto> _secuencia = [];
   final notificationService = NotificationService();
-  Offset? _startPosition;
   String? _friendId;
 
   @override
@@ -73,25 +71,15 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
     }
   }
 
-  void _procesarGesto(Offset delta) {
+  void _agregarDireccion(DireccionGesto direccion) {
     if (_secuencia.length >= 5) return;
     HapticFeedback.vibrate();
-    const sensibilidad = 50.0;
-    if (delta.dx.abs() > delta.dy.abs()) {
-      // Movimiento horizontal
-      if (delta.dx > sensibilidad) {
-        setState(() => _secuencia.add(DireccionGesto.derecha));
-      } else if (delta.dx < -sensibilidad) {
-        setState(() => _secuencia.add(DireccionGesto.izquierda));
-      }
-    } else {
-      // Movimiento vertical
-      if (delta.dy > sensibilidad) {
-        setState(() => _secuencia.add(DireccionGesto.abajo));
-      } else if (delta.dy < -sensibilidad) {
-        setState(() => _secuencia.add(DireccionGesto.arriba));
-      }
-    }
+    setState(() => _secuencia.add(direccion));
+  }
+
+  void _limpiarSecuencia() {
+    HapticFeedback.vibrate();
+    setState(() => _secuencia.clear());
   }
 
   Future<void> agregarAmigo() async {
@@ -232,59 +220,63 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
                 ),
               ),
               const SizedBox(height: 24),
-              GestureDetector(
-                onPanStart: (details) {
-                  _startPosition = details.globalPosition;
-                },
-                onPanUpdate: (details) {
-                  if (_startPosition != null) {
-                    final delta = details.globalPosition - _startPosition!;
-                    if (delta.distance > 50) {
-                      _procesarGesto(delta);
-                      _startPosition = null;
-                    }
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Text(
-                          'Desliza en cualquier dirección\npara agregar una flecha',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: IconButton(
-                          onPressed: () {
-                            setState(() => _secuencia.clear());
-                          },
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: Colors.red.withOpacity(0.7),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+
+              // Botones direccionales para todos los dispositivos
+              Text(
+                'Usa estos botones para agregar direcciones',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 14,
                 ),
               ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 60),
+                  _buildDirectionButton(
+                      DireccionGesto.arriba, Icons.arrow_upward),
+                  const SizedBox(width: 60),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildDirectionButton(
+                      DireccionGesto.izquierda, Icons.arrow_back),
+                  const SizedBox(width: 0),
+                  // Botón de basura en el centro
+                  Container(
+                    margin: const EdgeInsets.all(4),
+                    child: ElevatedButton(
+                      onPressed:
+                          _secuencia.isNotEmpty ? _limpiarSecuencia : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade800,
+                        shape: const CircleBorder(),
+                        padding: const EdgeInsets.all(16),
+                      ),
+                      child:
+                          const Icon(Icons.delete_outline, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 0),
+                  _buildDirectionButton(
+                      DireccionGesto.derecha, Icons.arrow_forward),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 60),
+                  _buildDirectionButton(
+                      DireccionGesto.abajo, Icons.arrow_downward),
+                  const SizedBox(width: 60),
+                ],
+              ),
+
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -315,5 +307,21 @@ class _AgregarAmigoBottomSheetState extends State<AgregarAmigoBottomSheet> {
             ],
           ),
         ));
+  }
+
+  Widget _buildDirectionButton(DireccionGesto direccion, IconData iconData) {
+    return Container(
+      margin: const EdgeInsets.all(4),
+      child: ElevatedButton(
+        onPressed:
+            _secuencia.length < 5 ? () => _agregarDireccion(direccion) : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Color(AppColors.primaryGreen),
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(16),
+        ),
+        child: Icon(iconData, color: Colors.white),
+      ),
+    );
   }
 }

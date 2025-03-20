@@ -61,4 +61,48 @@ class Torneo {
       ganadorIndividual: json['ganador_individual'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = {
+      'id': id,
+      'id_creator': idCreator,
+      'nombre': nombre,
+      'modalidad': modalidad,
+      'ubicacion_a_latitud': ubicacionALatitud,
+      'ubicacion_a_longitud': ubicacionALongitud,
+      'nombre_ubicacion_a': nombreUbicacionA,
+      'fecha_inicio': fechaInicio.toUtc().toIso8601String(),
+      'fecha_fin': fechaFin.toUtc().toIso8601String(),
+      'ubicacion_aproximada': ubicacionAproximada,
+      'finalizado': finalizado,
+      'code_id': codeId,
+    };
+
+    // Agregar campos opcionales solo si tienen valor
+    if (ubicacionBLatitud != null) {
+      data['ubicacion_b_latitud'] = ubicacionBLatitud;
+    }
+
+    if (ubicacionBLongitud != null) {
+      data['ubicacion_b_longitud'] = ubicacionBLongitud;
+    }
+
+    if (nombreUbicacionB != null) {
+      data['nombre_ubicacion_b'] = nombreUbicacionB;
+    }
+
+    if (metrosAprox != null) {
+      data['metros_aproximados'] = metrosAprox;
+    }
+
+    if (ganadorVersus != null) {
+      data['ganador_versus'] = ganadorVersus;
+    }
+
+    if (ganadorIndividual != null) {
+      data['ganador_individual'] = ganadorIndividual;
+    }
+
+    return data;
+  }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:proyecto_verde_participativo/main.dart';
 import 'package:proyecto_verde_participativo/models/user_profile.dart';
 import 'package:proyecto_verde_participativo/models/user_stats.dart';
 import 'package:proyecto_verde_participativo/screens/admin_torneo_page.dart';
@@ -10,6 +12,7 @@ import 'package:proyecto_verde_participativo/screens/home_page_friend.dart';
 import 'package:proyecto_verde_participativo/services/notification_service.dart';
 import 'package:proyecto_verde_participativo/widgets/agregar_torneo_bottom_sheet.dart';
 import 'package:proyecto_verde_participativo/widgets/custom_notification.dart';
+import 'package:proyecto_verde_participativo/widgets/torneo_info_bottom_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../constants/colors.dart';
@@ -24,6 +27,7 @@ import '../widgets/personaje_widget.dart';
 import 'welcome_page.dart';
 import 'mapa_acciones_page.dart';
 import 'ranking_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -61,7 +65,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _pendingMedalla = 0;
   int _pendingAmigo = 0;
   bool _duenoTorneo = false;
+  String _torneoId = '';
   bool _isLoading = true;
+  bool _isServerHealthy = true;
 
   // Variables para la animación
   late AnimationController _animationController;
@@ -74,7 +80,81 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     super.initState();
     _setFullScreenMode();
     _initializeControllers();
-    _cargarDatosIniciales();
+    _verificarSaludServidor();
+  }
+
+  Future<void> _verificarSaludServidor() async {
+    // Verificar la salud del servidor
+    bool isHealthy = await _apiService.checkHealth();
+
+    if (!isHealthy && mounted) {
+      setState(() {
+        _isServerHealthy = false;
+      });
+
+      // Mostrar diálogo de error de conexión
+      _mostrarDialogoErrorConexion();
+    } else if (mounted) {
+      setState(() {
+        _isServerHealthy = true;
+      });
+
+      // Cargar datos iniciales
+      _cargarDatosIniciales();
+    }
+  }
+
+  void _mostrarDialogoErrorConexion() {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false, // Impedir cerrar con botón atrás
+          child: AlertDialog(
+            title: const Text('Error de conexión'),
+            content: const Text(
+              'No se pudo conectar con el servidor. Verifica tu conexión a internet e intenta nuevamente.',
+              style: TextStyle(fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  // Reintentar conexión
+                  bool isHealthy = await _apiService.checkHealth();
+
+                  if (isHealthy) {
+                    // Cerrar diálogo si conexión exitosa
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                      setState(() {
+                        _isServerHealthy = true;
+                      });
+
+                      // Cargar datos iniciales
+                      _cargarDatosIniciales();
+                    }
+                  } else {
+                    // Mostrar mensaje de error persistente
+                    if (mounted) {
+                      NotificationService().showNotification(
+                        context,
+                        message:
+                            'No se pudo conectar con el servidor. Intenta nuevamente.',
+                        type: NotificationType.error,
+                      );
+                    }
+                  }
+                },
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _setFullScreenMode() {
@@ -142,47 +222,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _cargarDatosIniciales() async {
-    setState(() => _isLoading = false);
+    if (!_isServerHealthy) {
+      // Si el servidor no está disponible, verificar estado nuevamente
+      _verificarSaludServidor();
+      return;
+    }
+
+    setState(() => _isLoading = true);
     // Primero cargamos los datos de SharedPreferences para mostrar algo rápido
     await _cargarDatosLocales();
     // Luego actualizamos con datos frescos de la API
     await _actualizarDatosDesdeAPI();
 
-/*
-  // Mostrar el pop-up con el personaje
-    if (mounted) {
-      final personajeProvider =
-          Provider.of<PersonajeProvider>(context, listen: false);
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              color: Color(AppColors.darkGreen),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: PersonajeWidget(
-              cabello: personajeProvider.cabello,
-              vestimenta: personajeProvider.vestimenta,
-              barba: personajeProvider.barba,
-              detalleFacial: personajeProvider.detalleFacial,
-              detalleAdicional: personajeProvider.detalleAdicional,
-              isPrincipal: false,
-              height: 300,
-            ),
-          ),
-        ),
-      );
-    }
-*/
     setState(() => _isLoading = false);
   }
 
@@ -202,6 +253,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _duenoTorneo = prefs.getBool('duenoTorneo') ?? false;
       _pendingMedalla = prefs.getInt('pendingMedalla') ?? 0;
       _pendingAmigo = prefs.getInt('pendingAmigo') ?? 0;
+      _torneoId = prefs.getString('torneo') ?? '';
     });
 
     // Cargar datos del personaje usando el provider
@@ -209,6 +261,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _actualizarDatosDesdeAPI() async {
+    if (!_isServerHealthy) {
+      return; // No intentar actualizar si el servidor no está disponible
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
@@ -243,6 +299,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await prefs.setBool('duenoTorneo', userStats.esDuenoTorneo);
       await prefs.setInt('pendingAmigo', userStats.pendingAmigos);
       await prefs.setString('slogan', userProfile.slogan);
+      await prefs.setString('torneo', userStats.torneoId ?? '');
 
       // Actualizamos el personaje usando el provider
       personajeProvider.actualizarAccesorios(
@@ -295,12 +352,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           _pendingMedalla = userStats.pendingMedalla;
           _pendingAmigo = userStats.pendingAmigos;
           _duenoTorneo = userStats.esDuenoTorneo;
+          _torneoId = userStats.torneoId ?? '';
           _amigos = userStats.cantidadAmigos;
           _torneos = userStats.torneosParticipados;
         });
       }
     } catch (e) {
       debugPrint('Error al cargar datos de la API: $e');
+
+      // Marcar el servidor como no disponible
+      if (mounted) {
+        setState(() {
+          _isServerHealthy = false;
+        });
+
+        // Mostrar diálogo de error de conexión
+        _mostrarDialogoErrorConexion();
+      }
     }
   }
 
@@ -349,6 +417,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Verificar estado del servidor cuando se construye la UI
+    if (!_isServerHealthy) {
+      // Programar la visualización del diálogo después que la UI esté construida
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_isServerHealthy) {
+          // Verificar si ya hay un diálogo mostrándose
+          final bool isDialogShowing =
+              ModalRoute.of(context)?.isCurrent != true;
+          if (!isDialogShowing) {
+            _mostrarDialogoErrorConexion();
+          }
+        }
+      });
+    }
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -511,7 +594,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ),
                       child: Column(
                         children: [
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 0),
                           if (_isLoading)
                             const CircularProgressIndicator(color: Colors.white)
                           else ...[
@@ -557,7 +640,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               children: [
                                 GestureDetector(
                                   onTap: () async {
-                                    if (!_duenoTorneo) {
+                                    if (!_duenoTorneo && _torneoId.isEmpty) {
                                       HapticFeedback.lightImpact();
                                       showModalBottomSheet(
                                         context: context,
@@ -585,6 +668,40 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                         await HomePage.actualizarEstadisticas(
                                             context);
                                       });
+                                    } else if (!_duenoTorneo &&
+                                        _torneoId.isNotEmpty) {
+                                      // Mostrar información del torneo al que pertenece el usuario
+                                      HapticFeedback.lightImpact();
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (context) => Container(
+                                          decoration: BoxDecoration(
+                                            color: Color(AppColors.darkGreen),
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                              topLeft: Radius.circular(27),
+                                              topRight: Radius.circular(27),
+                                            ),
+                                          ),
+                                          padding: EdgeInsets.only(
+                                            bottom: MediaQuery.of(context)
+                                                .viewInsets
+                                                .bottom,
+                                          ),
+                                          child: SingleChildScrollView(
+                                            child: TorneoInfoBottomSheet(
+                                              torneoId: _torneoId,
+                                              onTorneoAbandonado: () async {
+                                                await HomePage
+                                                    .actualizarEstadisticas(
+                                                        context);
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      );
                                     } else {
                                       HapticFeedback.lightImpact();
                                       final prefs =
@@ -610,7 +727,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                             ? ""
                                             : _torneos.toString(),
                                         isInverted: false,
-                                        isAddition: !_duenoTorneo,
+                                        isAddition: !(_duenoTorneo ||
+                                            _torneoId.isNotEmpty),
                                         color: Colors.yellow,
                                       ),
                                       if (_duenoTorneo)
@@ -618,6 +736,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                           Icons.settings,
                                           color: Colors.white,
                                         ),
+                                      if (!_duenoTorneo && _torneoId.isNotEmpty) ...[
+                                        const SizedBox(width: 5),
+                                        Icon(
+                                          Icons.info_outline,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ]
                                     ],
                                   ),
                                 ),
@@ -904,17 +1030,112 @@ class MenuPrincipal extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SubirAccionPage(),
-                      ),
-                    ).then((_) {
-                      if (homePageState != null) {
-                        homePageState._cargarDatosIniciales();
+                  onTap: () async {
+                    HapticFeedback.lightImpact();
+                    // Verificar permisos de cámara y ubicación
+                    final cameraStatus = await Permission.camera.status;
+                    final locationStatus = await Permission.location.status;
+                    SharedPreferences prefs =
+                        await SharedPreferences.getInstance();
+                    bool messagePermission =
+                        prefs.getBool('messagePermission') ?? false;
+                    // Si alguno de los permisos no está concedido, mostrar diálogo
+                    if (isIOS() && messagePermission || kDebugMode) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubirAccionPage(),
+                        ),
+                      ).then((_) {
+                        if (homePageState != null) {
+                          homePageState._cargarDatosIniciales();
+                        }
+                      });
+                    } else if ((!cameraStatus.isGranted ||
+                        !locationStatus.isGranted)) {
+                      bool? result = await showDialog<bool>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Permisos necesarios'),
+                            content: const Text(
+                              'La aplicación requiere acceso a tu ubicación y cámara para subir acciones.',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('Cancelar'),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text('De acuerdo'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      // Si el usuario acepta, solicitar permisos
+                      if (result == true) {
+                        try {
+                          // Solicitar permisos
+                          Map<Permission, PermissionStatus> statuses = await [
+                            Permission.camera,
+                            Permission.location,
+                          ].request();
+
+                          // Verificar si ambos permisos fueron concedidos
+                          if (statuses[Permission.camera]!.isGranted &&
+                              statuses[Permission.location]!.isGranted) {
+                            // Navegar a la página de subir acción
+                            if (isIOS()) {
+                              SharedPreferences prefs =
+                                  await SharedPreferences.getInstance();
+                              prefs.setBool('messagePermission', true);
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SubirAccionPage(),
+                              ),
+                            ).then((_) {
+                              if (homePageState != null) {
+                                homePageState._cargarDatosIniciales();
+                              }
+                            });
+                          } else {
+                            NotificationService().showError(
+                              context,
+                              !statuses[Permission.camera]!.isGranted &&
+                                      !statuses[Permission.location]!.isGranted
+                                  ? 'Se requieren permisos de cámara y ubicación para subir acciones'
+                                  : !statuses[Permission.camera]!.isGranted
+                                      ? 'Se requiere permiso de cámara para subir acciones'
+                                      : 'Se requiere permiso de ubicación para subir acciones',
+                            );
+                          }
+                        } catch (e) {
+                          NotificationService().showError(
+                            context,
+                            'Ocurrió un error al solicitar los permisos, verifica que tengas permisos de cámara y ubicación.',
+                          );
+                        }
                       }
-                    });
+                    } else {
+                      // Si ya tiene los permisos, navegar directamente
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubirAccionPage(),
+                        ),
+                      ).then((_) {
+                        if (homePageState != null) {
+                          homePageState._cargarDatosIniciales();
+                        }
+                      });
+                    }
                   },
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -939,6 +1160,7 @@ class MenuPrincipal extends StatelessWidget {
                 ),
               ),
             ),
+            Expanded(child: Container()),
           ],
         ));
   }

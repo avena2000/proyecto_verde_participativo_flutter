@@ -58,6 +58,7 @@ class AccionesProvider with ChangeNotifier {
     required String imagePath,
     double? latitude,
     double? longitude,
+    bool isTournamentValid = false,
     bool showMessages = false,
   }) async {
     try {
@@ -71,6 +72,7 @@ class AccionesProvider with ChangeNotifier {
         imagePath: imagePath,
         latitude: latitude,
         longitude: longitude,
+        isTournamentValid: isTournamentValid,
         showMessages: showMessages,
       );
 
@@ -90,6 +92,7 @@ class AccionesProvider with ChangeNotifier {
     required Uint8List imageBytes,
     double? latitude,
     double? longitude,
+    bool isTournamentValid = false,
     bool showMessages = false,
   }) async {
     try {
@@ -105,6 +108,7 @@ class AccionesProvider with ChangeNotifier {
         imageBytes: imageBytes,
         latitude: latitude,
         longitude: longitude,
+        isTournamentValid: isTournamentValid,
         showMessages: showMessages,
       );
 
