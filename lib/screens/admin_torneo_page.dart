@@ -10,6 +10,8 @@ import '../models/torneo.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import 'dart:ui';
+import 'package:intl/intl.dart';
+import 'package:flutter_map_animations/flutter_map_animations.dart';
 
 class AdminTorneoPage extends StatefulWidget {
   const AdminTorneoPage({
@@ -20,13 +22,41 @@ class AdminTorneoPage extends StatefulWidget {
   State<AdminTorneoPage> createState() => _AdminTorneoPageState();
 }
 
-class _AdminTorneoPageState extends State<AdminTorneoPage> {
+class _AdminTorneoPageState extends State<AdminTorneoPage>
+    with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   final notificationService = NotificationService();
   Torneo? _torneo;
   bool _isLoading = true;
   String _userId = '';
-  final List<DireccionGesto> _secuencia = [];
+
+  // Mapas y control de zoom
+  final MapController _mapControllerA = MapController();
+  final MapController _mapControllerB = MapController();
+  final MapController _mapControllerIndividual = MapController();
+
+  // Formato para mostrar la fecha y hora
+  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
+  final DateFormat _timeFormat = DateFormat('HH:mm');
+
+  // Calcula el zoom basado en el radio en metros
+  double _calcularZoom(int metrosAprox) {
+    if (metrosAprox <= 200) return 16.0;
+    if (metrosAprox <= 500) return 15.0;
+    if (metrosAprox <= 1000) return 14.0;
+    if (metrosAprox <= 2000) return 13.0;
+    return 12.0; // Para radios mayores a 2000m
+  }
+
+  void _zoomIn(MapController controller, String tipo) {
+    double newZoom = (controller.camera.zoom + 1).clamp(3.0, 18.0);
+    controller.move(controller.camera.center, newZoom);
+  }
+
+  void _zoomOut(MapController controller, String tipo) {
+    double newZoom = (controller.camera.zoom - 1).clamp(3.0, 18.0);
+    controller.move(controller.camera.center, newZoom);
+  }
 
   @override
   void initState() {
@@ -92,11 +122,14 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
   Future<void> _actualizarFechaFin() async {
     if (_torneo == null) return;
 
+    // Usar la fecha local para el DatePicker
+    DateTime fechaFinLocal = _torneo!.fechaFin.toLocal();
+
     final fecha = await showDatePicker(
       context: context,
-      initialDate: _torneo!.fechaFin,
-      firstDate: _torneo!.fechaInicio,
-      lastDate: _torneo!.fechaInicio.add(const Duration(days: 365)),
+      initialDate: fechaFinLocal,
+      firstDate: _torneo!.fechaInicio.toLocal(),
+      lastDate: _torneo!.fechaInicio.toLocal().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -116,7 +149,7 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
 
     final hora = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_torneo!.fechaFin),
+      initialTime: TimeOfDay.fromDateTime(fechaFinLocal),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -134,7 +167,8 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
 
     if (hora == null) return;
 
-    final nuevaFecha = DateTime(
+    // Crear la nueva fecha en horario local
+    final nuevaFechaLocal = DateTime(
       fecha.year,
       fecha.month,
       fecha.day,
@@ -144,9 +178,9 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
 
     try {
       await _apiService.put(
-        '/torneos/$_userId/fecha_fin',
+        '/torneos/${_torneo!.id}/fecha_fin',
         data: {
-          'fecha_fin': nuevaFecha.toUtc().toIso8601String(),
+          'fecha_fin': nuevaFechaLocal.toUtc().toIso8601String(),
         },
         parser: (data) => data,
       );
@@ -400,14 +434,16 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                                     ),
                                   ),
                                   Text(
-                                    '${_torneo!.fechaInicio.day}/${_torneo!.fechaInicio.month}/${_torneo!.fechaInicio.year}',
+                                    _dateFormat
+                                        .format(_torneo!.fechaInicio.toLocal()),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                     ),
                                   ),
                                   Text(
-                                    '${_torneo!.fechaInicio.hour}:${_torneo!.fechaInicio.minute.toString().padLeft(2, '0')}',
+                                    _timeFormat
+                                        .format(_torneo!.fechaInicio.toLocal()),
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.7),
                                       fontSize: 14,
@@ -434,14 +470,16 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                                     ),
                                   ),
                                   Text(
-                                    '${_torneo!.fechaFin.day}/${_torneo!.fechaFin.month}/${_torneo!.fechaFin.year}',
+                                    _dateFormat
+                                        .format(_torneo!.fechaFin.toLocal()),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                     ),
                                   ),
                                   Text(
-                                    '${_torneo!.fechaFin.hour}:${_torneo!.fechaFin.minute.toString().padLeft(2, '0')}',
+                                    _timeFormat
+                                        .format(_torneo!.fechaFin.toLocal()),
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.7),
                                       fontSize: 14,
@@ -645,63 +683,191 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              height: 200,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                              ),
-                              child: FlutterMap(
-                                options: MapOptions(
-                                  initialCenter: LatLng(
-                                    _torneo!.ubicacionALatitud,
-                                    _torneo!.ubicacionALongitud,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                    ),
                                   ),
-                                  initialZoom: 15,
-                                  interactionOptions: InteractionOptions(
-                                    flags: InteractiveFlag.none,
-                                  ),
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.vive.app',
-                                    tileProvider:
-                                        CancellableNetworkTileProvider(),
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: LatLng(
-                                          _torneo!.ubicacionALatitud,
-                                          _torneo!.ubicacionALongitud,
+                                  child: FlutterMap(
+                                    mapController: _mapControllerA,
+                                    options: MapOptions(
+                                      initialCenter: LatLng(
+                                        _torneo!.ubicacionALatitud,
+                                        _torneo!.ubicacionALongitud,
+                                      ),
+                                      initialZoom: _torneo!.metrosAprox != null
+                                          ? _calcularZoom(_torneo!.metrosAprox!)
+                                          : 15,
+                                      interactionOptions: InteractionOptions(
+                                        flags: InteractiveFlag.none,
+                                      ),
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.vive.app',
+                                        tileProvider:
+                                            CancellableNetworkTileProvider(),
+                                      ),
+                                      // Círculo para mostrar el radio
+                                      if (_torneo!.metrosAprox != null)
+                                        CircleLayer(
+                                          circles: [
+                                            CircleMarker(
+                                              point: LatLng(
+                                                _torneo!.ubicacionALatitud,
+                                                _torneo!.ubicacionALongitud,
+                                              ),
+                                              radius: _torneo!.metrosAprox!
+                                                  .toDouble(),
+                                              useRadiusInMeter: true,
+                                              color:
+                                                  Color(AppColors.primaryGreen)
+                                                      .withOpacity(0.2),
+                                              borderColor:
+                                                  Color(AppColors.primaryGreen)
+                                                      .withOpacity(0.8),
+                                              borderStrokeWidth: 2.0,
+                                            ),
+                                          ],
                                         ),
-                                        width: 40,
-                                        height: 40,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Color(AppColors.primaryGreen)
-                                                .withOpacity(0.3),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                                color: Colors.white, width: 2),
+                                      MarkerLayer(
+                                        markers: [
+                                          Marker(
+                                            point: LatLng(
+                                              _torneo!.ubicacionALatitud,
+                                              _torneo!.ubicacionALongitud,
+                                            ),
+                                            width: 40,
+                                            height: 40,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Color(
+                                                        AppColors.primaryGreen)
+                                                    .withOpacity(0.3),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2),
+                                              ),
+                                              child: Icon(
+                                                Icons.location_on,
+                                                color: Color(
+                                                    AppColors.primaryGreen),
+                                                size: 20,
+                                              ),
+                                            ),
                                           ),
-                                          child: Icon(
-                                            Icons.location_on,
-                                            color:
-                                                Color(AppColors.primaryGreen),
-                                            size: 20,
-                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Botones de zoom
+                                Positioned(
+                                  top: 10,
+                                  right: 10,
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: IconButton(
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.add,
+                                              color: Colors.black87),
+                                          onPressed: () =>
+                                              _zoomIn(_mapControllerA, 'A'),
+                                          tooltip: 'Acercar',
+                                          iconSize: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: IconButton(
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.remove,
+                                              color: Colors.black87),
+                                          onPressed: () =>
+                                              _zoomOut(_mapControllerA, 'A'),
+                                          tooltip: 'Alejar',
+                                          iconSize: 20,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
+                          // Mostrar información sobre el radio
+                          if (_torneo!.metrosAprox != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Color(AppColors.primaryGreen)
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.5),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.radar,
+                                      color: Color(AppColors.primaryGreen),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Radio de acción: ${_torneo!.metrosAprox} metros',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -745,65 +911,195 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                             const SizedBox(height: 12),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                height: 200,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: FlutterMap(
-                                  options: MapOptions(
-                                    initialCenter: LatLng(
-                                      _torneo!.ubicacionBLatitud!,
-                                      _torneo!.ubicacionBLongitud!,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    height: 200,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.3),
+                                      ),
                                     ),
-                                    initialZoom: 15,
-                                    interactionOptions: InteractionOptions(
-                                      flags: InteractiveFlag.none,
-                                    ),
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate:
-                                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: 'com.vive.app',
-                                      tileProvider:
-                                          CancellableNetworkTileProvider(),
-                                    ),
-                                    MarkerLayer(
-                                      markers: [
-                                        Marker(
-                                          point: LatLng(
-                                            _torneo!.ubicacionBLatitud!,
-                                            _torneo!.ubicacionBLongitud!,
+                                    child: FlutterMap(
+                                      mapController: _mapControllerB,
+                                      options: MapOptions(
+                                        initialCenter: LatLng(
+                                          _torneo!.ubicacionBLatitud!,
+                                          _torneo!.ubicacionBLongitud!,
+                                        ),
+                                        initialZoom:
+                                            _torneo!.metrosAprox != null
+                                                ? _calcularZoom(
+                                                    _torneo!.metrosAprox!)
+                                                : 15,
+                                        interactionOptions: InteractionOptions(
+                                          flags: InteractiveFlag.none,
+                                        ),
+                                      ),
+                                      children: [
+                                        TileLayer(
+                                          urlTemplate:
+                                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                          userAgentPackageName: 'com.vive.app',
+                                          tileProvider:
+                                              CancellableNetworkTileProvider(),
+                                        ),
+                                        // Círculo para mostrar el radio
+                                        if (_torneo!.metrosAprox != null)
+                                          CircleLayer(
+                                            circles: [
+                                              CircleMarker(
+                                                point: LatLng(
+                                                  _torneo!.ubicacionBLatitud!,
+                                                  _torneo!.ubicacionBLongitud!,
+                                                ),
+                                                radius: _torneo!.metrosAprox!
+                                                    .toDouble(),
+                                                useRadiusInMeter: true,
+                                                color: Color(
+                                                        AppColors.primaryGreen)
+                                                    .withOpacity(0.2),
+                                                borderColor: Color(
+                                                        AppColors.primaryGreen)
+                                                    .withOpacity(0.8),
+                                                borderStrokeWidth: 2.0,
+                                              ),
+                                            ],
                                           ),
-                                          width: 40,
-                                          height: 40,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Color(AppColors.primaryGreen)
+                                        MarkerLayer(
+                                          markers: [
+                                            Marker(
+                                              point: LatLng(
+                                                _torneo!.ubicacionBLatitud!,
+                                                _torneo!.ubicacionBLongitud!,
+                                              ),
+                                              width: 40,
+                                              height: 40,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Color(AppColors
+                                                          .primaryGreen)
                                                       .withOpacity(0.3),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                  color: Colors.white,
-                                                  width: 2),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 2),
+                                                ),
+                                                child: Icon(
+                                                  Icons.location_on,
+                                                  color: Color(
+                                                      AppColors.primaryGreen),
+                                                  size: 20,
+                                                ),
+                                              ),
                                             ),
-                                            child: Icon(
-                                              Icons.location_on,
-                                              color:
-                                                  Color(AppColors.primaryGreen),
-                                              size: 20,
-                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Botones de zoom
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.7),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: IconButton(
+                                            padding: const EdgeInsets.all(4),
+                                            constraints: const BoxConstraints(),
+                                            icon: const Icon(Icons.add,
+                                                color: Colors.black87),
+                                            onPressed: () =>
+                                                _zoomIn(_mapControllerB, 'B'),
+                                            tooltip: 'Acercar',
+                                            iconSize: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.white.withOpacity(0.7),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: IconButton(
+                                            padding: const EdgeInsets.all(4),
+                                            constraints: const BoxConstraints(),
+                                            icon: const Icon(Icons.remove,
+                                                color: Colors.black87),
+                                            onPressed: () =>
+                                                _zoomOut(_mapControllerB, 'B'),
+                                            tooltip: 'Alejar',
+                                            iconSize: 20,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
+                            // Mostrar información sobre el radio
+                            if (_torneo!.metrosAprox != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Color(AppColors.primaryGreen)
+                                          .withOpacity(0.5),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.radar,
+                                        color: Color(AppColors.primaryGreen),
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Radio de acción: ${_torneo!.metrosAprox} metros',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -847,63 +1143,193 @@ class _AdminTorneoPageState extends State<AdminTorneoPage> {
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              height: 200,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
-                                ),
-                              ),
-                              child: FlutterMap(
-                                options: MapOptions(
-                                  initialCenter: LatLng(
-                                    _torneo!.ubicacionALatitud,
-                                    _torneo!.ubicacionALongitud,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                    ),
                                   ),
-                                  initialZoom: 15,
-                                  interactionOptions: InteractionOptions(
-                                    flags: InteractiveFlag.none,
-                                  ),
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.vive.app',
-                                    tileProvider:
-                                        CancellableNetworkTileProvider(),
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: LatLng(
-                                          _torneo!.ubicacionALatitud,
-                                          _torneo!.ubicacionALongitud,
+                                  child: FlutterMap(
+                                    mapController: _mapControllerIndividual,
+                                    options: MapOptions(
+                                      initialCenter: LatLng(
+                                        _torneo!.ubicacionALatitud,
+                                        _torneo!.ubicacionALongitud,
+                                      ),
+                                      initialZoom: _torneo!.metrosAprox != null
+                                          ? _calcularZoom(_torneo!.metrosAprox!)
+                                          : 15,
+                                      interactionOptions: InteractionOptions(
+                                        flags: InteractiveFlag.none,
+                                      ),
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
+                                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                        userAgentPackageName: 'com.vive.app',
+                                        tileProvider:
+                                            CancellableNetworkTileProvider(),
+                                      ),
+                                      // Círculo para mostrar el radio
+                                      if (_torneo!.metrosAprox != null)
+                                        CircleLayer(
+                                          circles: [
+                                            CircleMarker(
+                                              point: LatLng(
+                                                _torneo!.ubicacionALatitud,
+                                                _torneo!.ubicacionALongitud,
+                                              ),
+                                              radius: _torneo!.metrosAprox!
+                                                  .toDouble(),
+                                              useRadiusInMeter: true,
+                                              color:
+                                                  Color(AppColors.primaryGreen)
+                                                      .withOpacity(0.2),
+                                              borderColor:
+                                                  Color(AppColors.primaryGreen)
+                                                      .withOpacity(0.8),
+                                              borderStrokeWidth: 2.0,
+                                            ),
+                                          ],
                                         ),
-                                        width: 40,
-                                        height: 40,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Color(AppColors.primaryGreen)
-                                                .withOpacity(0.3),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                                color: Colors.white, width: 2),
+                                      MarkerLayer(
+                                        markers: [
+                                          Marker(
+                                            point: LatLng(
+                                              _torneo!.ubicacionALatitud,
+                                              _torneo!.ubicacionALongitud,
+                                            ),
+                                            width: 40,
+                                            height: 40,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Color(
+                                                        AppColors.primaryGreen)
+                                                    .withOpacity(0.3),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2),
+                                              ),
+                                              child: Icon(
+                                                Icons.location_on,
+                                                color: Color(
+                                                    AppColors.primaryGreen),
+                                                size: 20,
+                                              ),
+                                            ),
                                           ),
-                                          child: Icon(
-                                            Icons.location_on,
-                                            color:
-                                                Color(AppColors.primaryGreen),
-                                            size: 20,
-                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Botones de zoom
+                                Positioned(
+                                  top: 10,
+                                  right: 10,
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: IconButton(
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.add,
+                                              color: Colors.black87),
+                                          onPressed: () => _zoomIn(
+                                              _mapControllerIndividual,
+                                              'Individual'),
+                                          tooltip: 'Acercar',
+                                          iconSize: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: IconButton(
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.remove,
+                                              color: Colors.black87),
+                                          onPressed: () => _zoomOut(
+                                              _mapControllerIndividual,
+                                              'Individual'),
+                                          tooltip: 'Alejar',
+                                          iconSize: 20,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
+                          // Mostrar información sobre el radio
+                          if (_torneo!.metrosAprox != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Color(AppColors.primaryGreen)
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.5),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.radar,
+                                      color: Color(AppColors.primaryGreen),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Radio de acción: ${_torneo!.metrosAprox} metros',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

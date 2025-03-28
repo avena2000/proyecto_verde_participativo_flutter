@@ -26,6 +26,10 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
   final ApiService _apiService = ApiService();
   final notificationService = NotificationService();
 
+  // Controladores para los mapas
+  final MapController _mapaControllerA = MapController();
+  final MapController _mapaControllerB = MapController();
+
   String _modalidad = 'Individual';
   bool _ubicacionAproximada = false;
   DateTime _fechaInicio = DateTime.now();
@@ -36,6 +40,14 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
 
   LatLng? _ubicacionA;
   LatLng? _ubicacionB;
+
+  double _calcularZoom(int metrosAprox) {
+    if (metrosAprox <= 200) return 16.0;
+    if (metrosAprox <= 500) return 15.0;
+    if (metrosAprox <= 1000) return 14.0;
+    if (metrosAprox <= 2000) return 13.0;
+    return 12.0; // Para radios mayores a 2000m
+  }
 
   static const List<int> _metrosOptions = [
     100,
@@ -70,6 +82,9 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
     _nombreController.dispose();
     _nombreUbicacionAController.dispose();
     _nombreUbicacionBController.dispose();
+    // Disponer de los controladores de los mapas
+    _mapaControllerA.dispose();
+    _mapaControllerB.dispose();
     super.dispose();
   }
 
@@ -416,7 +431,20 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                           if (value != null) {
                             setState(() {
                               _metrosTolerancia = value;
+                              // El setState ya forzará la reconstrucción de los mapas con el nuevo zoom
                             });
+
+                            // Actualizar el zoom del mapa A si existe
+                            if (_ubicacionA != null) {
+                              _mapaControllerA.move(
+                                  _ubicacionA!, _calcularZoom(value));
+                            }
+
+                            // Actualizar el zoom del mapa B si existe
+                            if (_modalidad == 'Versus' && _ubicacionB != null) {
+                              _mapaControllerB.move(
+                                  _ubicacionB!, _calcularZoom(value));
+                            }
                           }
                         },
                       ),
@@ -470,9 +498,7 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _nombreUbicacionAController.text == ''
-                                    ? 'Seleccionar ubicación A'
-                                    : _nombreUbicacionAController.text,
+                                'Selecciona aquí la ubicación A',
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -496,16 +522,31 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                           child: FlutterMap(
                             options: MapOptions(
                               initialCenter: _ubicacionA!,
-                              initialZoom: 15,
+                              initialZoom: _calcularZoom(_metrosTolerancia),
                               interactionOptions: InteractionOptions(
                                   flags: InteractiveFlag.none),
                             ),
+                            mapController: _mapaControllerA,
                             children: [
                               TileLayer(
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.vive.app',
                                 tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              CircleLayer(
+                                circles: [
+                                  CircleMarker(
+                                    point: _ubicacionA!,
+                                    radius: _metrosTolerancia.toDouble(),
+                                    useRadiusInMeter: true,
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.2),
+                                    borderColor: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.8),
+                                    borderStrokeWidth: 2.0,
+                                  ),
+                                ],
                               ),
                               MarkerLayer(
                                 markers: [
@@ -582,9 +623,7 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _nombreUbicacionBController.text == ''
-                                    ? 'Seleccionar ubicación B'
-                                    : _nombreUbicacionBController.text,
+                                'Selecciona aquí la ubicación B',
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -608,16 +647,31 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                           child: FlutterMap(
                             options: MapOptions(
                               initialCenter: _ubicacionB!,
-                              initialZoom: 15,
+                              initialZoom: _calcularZoom(_metrosTolerancia),
                               interactionOptions: InteractionOptions(
                                   flags: InteractiveFlag.none),
                             ),
+                            mapController: _mapaControllerB,
                             children: [
                               TileLayer(
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.vive.app',
                                 tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              CircleLayer(
+                                circles: [
+                                  CircleMarker(
+                                    point: _ubicacionB!,
+                                    radius: _metrosTolerancia.toDouble(),
+                                    useRadiusInMeter: true,
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.2),
+                                    borderColor: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.8),
+                                    borderStrokeWidth: 2.0,
+                                  ),
+                                ],
                               ),
                               MarkerLayer(
                                 markers: [
@@ -694,9 +748,7 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                _nombreUbicacionAController.text == ''
-                                    ? 'Seleccionar ubicación'
-                                    : _nombreUbicacionAController.text,
+                                'Selecciona aquí la ubicación',
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -720,16 +772,31 @@ class _CrearTorneoBottomSheetState extends State<CrearTorneoBottomSheet> {
                           child: FlutterMap(
                             options: MapOptions(
                               initialCenter: _ubicacionA!,
-                              initialZoom: 15,
+                              initialZoom: _calcularZoom(_metrosTolerancia),
                               interactionOptions: InteractionOptions(
                                   flags: InteractiveFlag.none),
                             ),
+                            mapController: _mapaControllerA,
                             children: [
                               TileLayer(
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.vive.app',
                                 tileProvider: CancellableNetworkTileProvider(),
+                              ),
+                              CircleLayer(
+                                circles: [
+                                  CircleMarker(
+                                    point: _ubicacionA!,
+                                    radius: _metrosTolerancia.toDouble(),
+                                    useRadiusInMeter: true,
+                                    color: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.2),
+                                    borderColor: Color(AppColors.primaryGreen)
+                                        .withOpacity(0.8),
+                                    borderStrokeWidth: 2.0,
+                                  ),
+                                ],
                               ),
                               MarkerLayer(
                                 markers: [

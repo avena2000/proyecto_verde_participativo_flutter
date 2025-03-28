@@ -1,3 +1,5 @@
+import 'dart:js_interop';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
@@ -16,6 +18,9 @@ import 'package:proyecto_verde_participativo/models/user_basic_info.dart';
 import 'providers/acciones_provider.dart';
 import 'providers/personaje_provider.dart';
 import 'services/api_service.dart';
+
+@JS('removeSplashFromWeb') // referencia global a la función JS
+external void removeSplashFromWeb();
 
 // Constantes de la aplicación
 class AppConstants {
@@ -156,10 +161,8 @@ void _runMainApp(ApiService apiService, Widget initialRoute) {
 void _configureNativeUI() {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  SystemChrome.setPreferredOrientations(
+      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -194,6 +197,7 @@ void main() async {
     if (launchMode?.installed == true || kDebugMode) {
       debugPrint(
           'Omitiendo pantalla de instalación, continuando con la aplicación normal');
+      removeSplashFromWeb();
       final initialRoute = await checkInitialRoute();
       _runMainApp(apiService, initialRoute);
       return;
@@ -202,12 +206,15 @@ void main() async {
     // Si no está instalada, mostrar pantalla de instalación según el dispositivo
     if (isAndroid()) {
       debugPrint('Dispositivo detectado: Android');
+      removeSplashFromWeb();
       runApp(const InstallPWAScreen(isIOS: false));
     } else if (isIOS()) {
       debugPrint('Dispositivo detectado: iOS');
+      removeSplashFromWeb();
       runApp(const InstallPWAScreen(isIOS: true));
     } else {
       debugPrint('Dispositivo detectado: No móvil');
+      removeSplashFromWeb();
       runApp(const NonMobileDeviceWarning());
     }
   } else {

@@ -165,6 +165,7 @@ class _AgregarTorneoBottomSheetState extends State<AgregarTorneoBottomSheet> {
                 'torneo_longitud', _torneo?.ubicacionBLongitud ?? 0.0);
           }
           await prefs.setInt('torneo_metros', _torneo?.metrosAprox ?? 0);
+          await prefs.setBool('torneo_inscrito', true);
         }
 
         setState(() => _isLoading = false);

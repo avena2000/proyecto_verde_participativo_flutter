@@ -100,17 +100,21 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
       final userId = prefs.getString('userId');
 
       if (userId == null) return;
-      final slogan = _selectedSlogan == ""
-          ? _availableSlogans[0]
-          : _selectedSlogan;
+      final slogan =
+          _selectedSlogan == "" ? _availableSlogans[0] : _selectedSlogan;
+
+      // Limpia los espacios al final antes de enviar al API
+      final nombreFormateado = _nombreController.text.trim();
+      final apellidoFormateado = _apellidoController.text.trim();
+
       await _apiService.put('/users/$userId/profile/edit', data: {
-        'nombre': _nombreController.text,
-        'apellido': _apellidoController.text,
+        'nombre': nombreFormateado,
+        'apellido': apellidoFormateado,
         'slogan': slogan,
       });
 
-      await prefs.setString('nombre', _nombreController.text);
-      await prefs.setString('apellido', _apellidoController.text);
+      await prefs.setString('nombre', nombreFormateado);
+      await prefs.setString('apellido', apellidoFormateado);
       await prefs.setString('slogan', _selectedSlogan);
 
       widget.onUpdateComplete();
@@ -183,9 +187,51 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
                   if (value == null || value.isEmpty) {
                     return 'Por favor ingresa tu nombre';
                   }
+                  // Validar que no contenga caracteres especiales
+                  final RegExp caracteresPermitidos =
+                      RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$');
+                  if (!caracteresPermitidos.hasMatch(value)) {
+                    return 'El nombre no debe contener caracteres especiales';
+                  }
                   return null;
                 },
-                onChanged: (_) => _actualizarDatos(),
+                onChanged: (value) {
+                  // Solo capitaliza las palabras sin aplicar trim mientras escribe
+                  if (value.isNotEmpty) {
+                    // Solo capitaliza las palabras, sin quitar espacios
+                    String tempValue = value;
+                    final List<String> words = tempValue.split(' ');
+                    final List<String> capitalizedWords = [];
+
+                    for (final word in words) {
+                      if (word.isNotEmpty) {
+                        capitalizedWords.add(
+                            '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}');
+                      } else {
+                        // Preservar espacios múltiples
+                        capitalizedWords.add('');
+                      }
+                    }
+
+                    final String formattedValue = capitalizedWords.join(' ');
+
+                    if (tempValue != formattedValue) {
+                      // Preserva la posición del cursor
+                      final currentPosition = _nombreController.selection.start;
+
+                      _nombreController.value = TextEditingValue(
+                        text: formattedValue,
+                        selection: TextSelection.collapsed(
+                            offset: currentPosition < formattedValue.length
+                                ? currentPosition
+                                : formattedValue.length),
+                      );
+                    }
+                  }
+
+                  // Actualiza los datos cuando cambie el texto
+                  _actualizarDatos();
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -217,9 +263,52 @@ class _ConfiguracionBottomSheetState extends State<ConfiguracionBottomSheet> {
                   if (value == null || value.isEmpty) {
                     return 'Por favor ingresa tu apellido';
                   }
+                  // Validar que no contenga caracteres especiales
+                  final RegExp caracteresPermitidos =
+                      RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ ]+$');
+                  if (!caracteresPermitidos.hasMatch(value)) {
+                    return 'El apellido no debe contener caracteres especiales';
+                  }
                   return null;
                 },
-                onChanged: (_) => _actualizarDatos(),
+                onChanged: (value) {
+                  // Solo capitaliza las palabras sin aplicar trim mientras escribe
+                  if (value.isNotEmpty) {
+                    // Solo capitaliza las palabras, sin quitar espacios
+                    String tempValue = value;
+                    final List<String> words = tempValue.split(' ');
+                    final List<String> capitalizedWords = [];
+
+                    for (final word in words) {
+                      if (word.isNotEmpty) {
+                        capitalizedWords.add(
+                            '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}');
+                      } else {
+                        // Preservar espacios múltiples
+                        capitalizedWords.add('');
+                      }
+                    }
+
+                    final String formattedValue = capitalizedWords.join(' ');
+
+                    if (tempValue != formattedValue) {
+                      // Preserva la posición del cursor
+                      final currentPosition =
+                          _apellidoController.selection.start;
+
+                      _apellidoController.value = TextEditingValue(
+                        text: formattedValue,
+                        selection: TextSelection.collapsed(
+                            offset: currentPosition < formattedValue.length
+                                ? currentPosition
+                                : formattedValue.length),
+                      );
+                    }
+                  }
+
+                  // Actualiza los datos cuando cambie el texto
+                  _actualizarDatos();
+                },
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(

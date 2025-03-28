@@ -68,6 +68,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
   double? _tournamentLatitude;
   double? _tournamentLongitude;
   double? _tournamentRadius;
+  bool _isTournamentInscribed = false;
 
   Position? _currentPosition;
   bool _isCompressing = false;
@@ -272,7 +273,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
             _ubicacionEnProgreso = false;
           });
           // Validar proximidad al torneo si hay ubicación de torneo
-          if (_hasTournamentLocation) {
+          if (_hasTournamentLocation || _isTournamentInscribed) {
             _validarProximidadTorneo();
           }
           // Notificar que la ubicación ha cambiado
@@ -502,7 +503,7 @@ class _SubirAccionPageState extends State<SubirAccionPage>
                   'Alerta',
                   'Ayuda'
                 ][_currentPage]}?'),
-                if (_hasTournamentLocation)
+                if (_hasTournamentLocation || _isTournamentValid)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: Row(
@@ -977,16 +978,18 @@ class _SubirAccionPageState extends State<SubirAccionPage>
       final tournamentLat = prefs.getDouble('torneo_latitud') ?? 0.0;
       final tournamentLong = prefs.getDouble('torneo_longitud') ?? 0.0;
       final radius = prefs.getInt('torneo_metros') ?? 100;
+      final isInscribed = prefs.getBool('torneo_inscrito') ?? false;
 
       setState(() {
         _tournamentLatitude = tournamentLat;
         _tournamentLongitude = tournamentLong;
         _tournamentRadius = radius.toDouble();
         _hasTournamentLocation = tournamentLat != 0.0 && tournamentLong != 0.0;
+        _isTournamentInscribed = isInscribed;
       });
 
       // Si hay una ubicación de torneo y ya tenemos la ubicación actual, validar
-      if (_hasTournamentLocation && _currentPosition != null) {
+      if (_isTournamentInscribed && _currentPosition != null) {
         _validarProximidadTorneo();
       }
     } catch (e) {
@@ -996,16 +999,22 @@ class _SubirAccionPageState extends State<SubirAccionPage>
 
   // Método para validar la proximidad al torneo
   void _validarProximidadTorneo() {
-    if (!_hasTournamentLocation ||
-        _currentPosition == null ||
-        _tournamentRadius == null) {
+    if (!_isTournamentInscribed) {
       setState(() {
         _isTournamentValid = false;
+        developer.log('No válido torneo');
       });
       return;
     }
 
     try {
+      if (_isTournamentInscribed && !_hasTournamentLocation) {
+        setState(() {
+          _isTournamentValid = true;
+          developer.log('Válido torneo');
+        });
+        return;
+      }
       // Calcular distancia entre la ubicación actual y la ubicación del torneo
       final distancia = Geolocator.distanceBetween(
         _currentPosition!.latitude,

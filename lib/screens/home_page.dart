@@ -61,11 +61,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _acciones = 0;
   int _puntos = 0;
   int _amigos = 0;
-  int _torneos = 0;
   int _pendingMedalla = 0;
   int _pendingAmigo = 0;
   bool _duenoTorneo = false;
   String _torneoId = '';
+  int _victoriaTorneos = 0;
   bool _isLoading = true;
   bool _isServerHealthy = true;
 
@@ -249,7 +249,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _acciones = prefs.getInt('acciones') ?? 0;
       _puntos = prefs.getInt('puntos') ?? 0;
       _amigos = prefs.getInt('amigos') ?? 0;
-      _torneos = prefs.getInt('torneos') ?? 0;
       _duenoTorneo = prefs.getBool('duenoTorneo') ?? false;
       _pendingMedalla = prefs.getInt('pendingMedalla') ?? 0;
       _pendingAmigo = prefs.getInt('pendingAmigo') ?? 0;
@@ -300,6 +299,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       await prefs.setInt('pendingAmigo', userStats.pendingAmigos);
       await prefs.setString('slogan', userProfile.slogan);
       await prefs.setString('torneo', userStats.torneoId ?? '');
+
+      if (userStats.torneoId != null) {
+        await prefs.setBool('torneo_inscrito', true);
+      } else {
+        await prefs.setBool('torneo_inscrito', false);
+      }
 
       // Actualizamos el personaje usando el provider
       personajeProvider.actualizarAccesorios(
@@ -352,9 +357,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           _pendingMedalla = userStats.pendingMedalla;
           _pendingAmigo = userStats.pendingAmigos;
           _duenoTorneo = userStats.esDuenoTorneo;
+          _victoriaTorneos = userStats.torneosGanados;
           _torneoId = userStats.torneoId ?? '';
           _amigos = userStats.cantidadAmigos;
-          _torneos = userStats.torneosParticipados;
         });
       }
     } catch (e) {
@@ -672,26 +677,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                         _torneoId.isNotEmpty) {
                                       // Mostrar información del torneo al que pertenece el usuario
                                       HapticFeedback.lightImpact();
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (context) => Container(
-                                          decoration: BoxDecoration(
-                                            color: Color(AppColors.darkGreen),
-                                            borderRadius:
-                                                const BorderRadius.only(
-                                              topLeft: Radius.circular(27),
-                                              topRight: Radius.circular(27),
-                                            ),
-                                          ),
-                                          padding: EdgeInsets.only(
-                                            bottom: MediaQuery.of(context)
-                                                .viewInsets
-                                                .bottom,
-                                          ),
-                                          child: SingleChildScrollView(
-                                            child: TorneoInfoBottomSheet(
+                                      showCustomBottomSheet(
+                                        context,
+                                        canExpand: true,
+                                        (scrollController) =>
+                                            TorneoInfoBottomSheet(
+                                              scrollController: scrollController,
                                               torneoId: _torneoId,
                                               onTorneoAbandonado: () async {
                                                 await HomePage
@@ -699,9 +690,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                                         context);
                                               },
                                             ),
-                                          ),
-                                        ),
-                                      );
+                                    );
                                     } else {
                                       HapticFeedback.lightImpact();
                                       final prefs =
@@ -725,7 +714,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                         icon: Icons.emoji_events_rounded,
                                         value: _duenoTorneo
                                             ? ""
-                                            : _torneos.toString(),
+                                            : _victoriaTorneos.toString(),
                                         isInverted: false,
                                         isAddition: !(_duenoTorneo ||
                                             _torneoId.isNotEmpty),

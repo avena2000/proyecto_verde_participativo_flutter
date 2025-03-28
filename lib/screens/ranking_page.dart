@@ -379,7 +379,9 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
                 ),
               ],
             ),
-            subtitle: Center(
+            subtitle: Container(
+              height: 50,
+              alignment: Alignment.center,
               child: Text(
                 "\"${user.slogan}\"",
                 textAlign: TextAlign.center,
@@ -444,6 +446,8 @@ class _RankingPageState extends State<RankingPage> with WidgetsBindingObserver {
               child: Text(
                 '${user.nombre} ${user.apellido}',
                 textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
