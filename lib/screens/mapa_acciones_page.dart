@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:proyecto_verde_participativo/main.dart';
 import 'package:proyecto_verde_participativo/models/user_action.dart';
 import 'package:proyecto_verde_participativo/services/api_service.dart';
 import 'package:proyecto_verde_participativo/constants/colors.dart';
@@ -427,10 +428,12 @@ class _MapaAccionesPageState extends State<MapaAccionesPage>
               fontFamily: 'YesevaOne',
             ),
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          leading: isIOS() || isAndroid()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                )
+              : null,
         ),
         body: _isLoading
             ? Center(

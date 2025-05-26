@@ -18,6 +18,7 @@ import 'package:proyecto_verde_participativo/models/user_basic_info.dart';
 import 'providers/acciones_provider.dart';
 import 'providers/personaje_provider.dart';
 import 'services/api_service.dart';
+import 'screens/mapa_acciones_page.dart';
 
 @JS('removeSplashFromWeb') // referencia global a la función JS
 external void removeSplashFromWeb();
@@ -215,7 +216,27 @@ void main() async {
     } else {
       debugPrint('Dispositivo detectado: No móvil');
       removeSplashFromWeb();
-      runApp(const NonMobileDeviceWarning());
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AccionesProvider(apiService)),
+            ChangeNotifierProvider(create: (_) => PersonajeProvider()),
+          ],
+          child: MaterialApp(
+            title: 'ViVe',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              colorScheme:
+                  ColorScheme.fromSeed(seedColor: AppConstants.primaryColor),
+              useMaterial3: true,
+              appBarTheme: const AppBarTheme(
+                systemOverlayStyle: SystemUiOverlayStyle.light,
+              ),
+            ),
+            home: const MapaAccionesPage(),
+          ),
+        ),
+      );
     }
   } else {
     // Configuración para aplicación nativa
